@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"encoding/gob"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"time"
 )
 
 // LoginMiddlewareBuilder 扩展性
@@ -21,6 +23,7 @@ func (l *LoginMiddlewareBuilder) IgnorePaths(path string) *LoginMiddlewareBuilde
 }
 
 func (l *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
+	gob.Register(time.Time{})
 	return func(ctx *gin.Context) {
 		// 不需要登录校验的
 		for _, path := range l.paths {
@@ -40,6 +43,28 @@ func (l *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			// 没有登录
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
+		}
+
+		updateTime := sess.Get("update_time")
+		sess.Set("UserId", id)
+		sess.Options(sessions.Options{
+			MaxAge: 60,
+		})
+		now := time.Now()
+		// 刚登陆，还没有刷新过
+		if updateTime == nil {
+			sess.Set("update_time", now)
+			if err := sess.Save(); err != nil {
+				panic(err)
+			}
+		}
+		// 检查到已设置update，判断是否需要进行刷新
+		updateTimeVal, _ := updateTime.(time.Time)
+		if now.Sub(updateTimeVal) > time.Second*10 {
+			sess.Set("update_time", now)
+			if err := sess.Save(); err != nil {
+				panic(err)
+			}
 		}
 	}
 }
