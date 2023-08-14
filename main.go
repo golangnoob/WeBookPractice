@@ -42,7 +42,8 @@ func initWebServer() *gin.Engine {
 		//AllowOrigins: []string{"*"},
 		//AllowMethods: []string{"POST", "GET"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
-		//ExposeHeaders: []string{"x-jwt-token"},
+		// 允许前端获取Header中key为"x-jwt-token"的val
+		ExposeHeaders: []string{"x-jwt-token"},
 		// 是否允许你带 cookie 之类的东西
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
