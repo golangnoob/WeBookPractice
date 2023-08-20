@@ -4,9 +4,11 @@ import (
 	"encoding/gob"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"log"
 	"net/http"
 	"strings"
 	"time"
+	"webooktrial/internal/web"
 )
 
 // LoginJWTMiddlewareBuilder JWT登录校验
@@ -49,7 +51,9 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 		}
 		tokenStr := segs[1]
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		claims := &web.UserClaims{}
+		// ParseWithClaims 里面，一定要传入指针
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte("bCTF)phY%[u5yA=Wl60mt]Q,SbVRwP!H"), nil
 		})
 		if err != nil {
@@ -57,10 +61,32 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		if token == nil || !token.Valid {
+		//claims.ExpiresAt.Time.Before(time.Now()) {
+		//	// 过期了
+		//}
+		// err 为 nil，token 不为 nil
+		if token == nil || !token.Valid || claims.Uid == 0 {
 			// 没登录
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		if claims.UserAgent != ctx.Request.UserAgent() {
+			// 严重的安全问题
+			// 你是要监控
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+		now := time.Now()
+		if claims.ExpiresAt.Sub(now) < time.Second*50 {
+			tokenStr, err = token.SignedString([]byte("bCTF)phY%[u5yA=Wl60mt]Q,SbVRwP!H"))
+			if err != nil {
+				// 记录日志
+				log.Println("jwt 续约失败", err)
+			}
+			ctx.Header("x-jwt-token", tokenStr)
+		}
+		ctx.Set("claims", claims)
+		//ctx.Set("userId", claims.Uid)
 	}
+
 }

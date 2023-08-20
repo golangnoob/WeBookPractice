@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"time"
 	"webooktrial/internal/domain"
 	"webooktrial/internal/service"
 )
@@ -122,7 +123,14 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	// 步骤2
 	// 在这里用 JWT 设置登录态
 	// 生成一个 JWT token
-	token := jwt.New(jwt.SigningMethodHS512)
+	claims := UserClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+		},
+		Uid:       user.Id,
+		UserAgent: ctx.Request.UserAgent(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	tokenStr, err := token.SignedString([]byte("bCTF)phY%[u5yA=Wl60mt]Q,SbVRwP!H"))
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "系统错误")
@@ -181,6 +189,10 @@ func (u *UserHandler) Logout(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "退出登录成功")
 }
 
+func (u *UserHandler) EditJWT(ctx *gin.Context) {
+	// TODO IMPLEMENT
+}
+
 func (u *UserHandler) Edit(ctx *gin.Context) {
 	type EditReq struct {
 		Nickname string `json:"nickname"  binding:"omitempty,gte=2,lt=15"`
@@ -196,6 +208,8 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 		return
 	}
 
+	//sess := sessions.Default(ctx)
+	//uid := sess.Get("UserId").(int64)
 	id, _ := ctx.Get("UserId")
 
 	err = u.svc.Edit(ctx, domain.User{
@@ -213,12 +227,34 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "修改成功")
 }
 
+func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
+	c, _ := ctx.Get("claims")
+	// 你可以断定，必然有 claims
+	//if !ok {
+	//	// 你可以考虑监控住这里
+	//	ctx.String(http.StatusOK, "系统错误")
+	//	return
+	//}
+	// ok 代表是不是 *UserClaims
+	claims, ok := c.(*UserClaims)
+	if !ok {
+		// 你可以考虑监控住这里
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	println(claims.Uid)
+	ctx.String(http.StatusOK, "你的 profile")
+	// 这边就是你补充 profile 的其它代码
+}
+
 func (u *UserHandler) Profile(ctx *gin.Context) {
 	//type ProfileReq struct {
 	//	Nickname string `json:"nickname"`
 	//	Birthday string `json:"birthday"`
 	//	Describe string `json:"describe"`
 	//}
+	//sess := sessions.Default(ctx)
+	//uid := sess.Get("UserId").(int64)
 	id, ok := ctx.Get("UserId")
 	if !ok {
 		return
@@ -234,4 +270,12 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 		"Describe": user.Describe,
 	})
 	return
+}
+
+type UserClaims struct {
+	jwt.RegisteredClaims
+	// 声明你自己的要放进去 token 里面的数据
+	Uid int64
+	// 自己随便加
+	UserAgent string
 }

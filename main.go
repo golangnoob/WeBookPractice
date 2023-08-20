@@ -5,15 +5,19 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
 	"strings"
 	"time"
+	"webooktrial/config"
 	"webooktrial/internal/repository"
 	"webooktrial/internal/repository/dao"
 	"webooktrial/internal/service"
 	"webooktrial/internal/web"
 	"webooktrial/internal/web/middleware"
+	"webooktrial/pkg/ginx/middlewares/ratelimit"
 )
 
 func main() {
@@ -23,7 +27,12 @@ func main() {
 	u := initUser(db)
 	u.RegisterRoutes(server)
 
-	server.Run(":8090")
+	server.GET("/hello", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, "你好，你来了.")
+	})
+	if err := server.Run(":8080"); err != nil {
+		panic(err)
+	}
 
 }
 
@@ -38,6 +47,10 @@ func initWebServer() *gin.Engine {
 		println("这是第二个 middleware")
 	})
 
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: config.Config.Redis.Addr,
+	})
+	server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
 	server.Use(cors.New(cors.Config{
 		//AllowOrigins: []string{"*"},
 		//AllowMethods: []string{"POST", "GET"},
@@ -82,7 +95,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 }
 
 func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/webook"))
+	db, err := gorm.Open(mysql.Open("root:root@tcp(webooktrial-mysql:11309)/webook"))
 	if err != nil {
 		// 我只会在初始化过程中 panic
 		// panic 相当于整个 goroutine 结束

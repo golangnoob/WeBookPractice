@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webooktrial-mysql
+  labels:
+    app: webooktrial-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webooktrial-mysql
+  template:
+    metadata:
+      name: webooktrial-mysql
+      labels:
+        app: webooktrial-mysql
+    spec:
+      containers:
+        - name: webooktrial-mysql
+          image: mysql:8.0
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+#            - 这边要对应到 mysql 的数据存储的位置
+#            - 通过 MySQL 的配置可以改这个目录
+            - mountPath: /var/lib/mysql
+#              我 POD 里面有那么多 volumes，我要用哪个
+              name: mysql-storage
+          ports:
+            - containerPort: 3306
+      restartPolicy: Always
+#              我 POD 里面有那么多 volumes，我要用哪个
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: webooktrial-mysql-claim
+      
