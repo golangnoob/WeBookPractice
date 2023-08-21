@@ -7,7 +7,7 @@ spec:
     app: webooktrial-redis
   ports:
     - protocol: TCP
-      port: 11479
+      port: 6380
       #      Redis 默认端口
       targetPort: 6379
       nodePort: 30003

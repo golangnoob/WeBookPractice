@@ -41,7 +41,7 @@ func (u *UserHandler) RegisterRoutesV1(ug *gin.RouterGroup) {
 
 func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
-	ug.GET("/profile", u.Profile)
+	ug.GET("/profile", u.ProfileJWT)
 	ug.POST("/signup", u.SignUp)
 	//ug.POST("/login", u.Login)
 	ug.POST("/login", u.LoginJWT)
@@ -125,7 +125,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	// 生成一个 JWT token
 	claims := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 		Uid:       user.Id,
 		UserAgent: ctx.Request.UserAgent(),
@@ -169,7 +169,7 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 		Secure:   true,
 		HttpOnly: true,
 		// 一分钟过期
-		MaxAge: 180,
+		MaxAge: 60,
 	})
 	sess.Save()
 	ctx.String(http.StatusOK, "登录成功")
@@ -243,8 +243,17 @@ func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
 		return
 	}
 	println(claims.Uid)
-	ctx.String(http.StatusOK, "你的 profile")
+	user, err := u.svc.Profile(ctx, claims.Uid)
+	if err != nil {
+		ctx.String(http.StatusBadRequest, err.Error())
+		return
+	}
 	// 这边就是你补充 profile 的其它代码
+	ctx.JSON(http.StatusOK, gin.H{
+		"Nickname": user.Nickname,
+		"Birthday": user.BirthDay,
+		"Describe": user.Describe,
+	})
 }
 
 func (u *UserHandler) Profile(ctx *gin.Context) {

@@ -5,9 +5,9 @@ package config
 
 var Config = config{
 	DB: DBConfig{
-		DSN: "root:root@tcp(webooktrial-mysql:11309)/webook",
+		DSN: "root:root@tcp(webooktrial-mysql:3308)/webook",
 	},
 	Redis: RedisConfig{
-		Addr: "webooktrial-redis:11479",
+		Addr: "webooktrial-redis:6380",
 	},
 }

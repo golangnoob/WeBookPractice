@@ -86,7 +86,7 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.Header("x-jwt-token", tokenStr)
 		}
 		ctx.Set("claims", claims)
-		//ctx.Set("userId", claims.Uid)
+		//ctx.Set("UserId", claims.Uid)
 	}
 
 }

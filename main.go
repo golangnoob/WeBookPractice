@@ -8,10 +8,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/http"
 	"strings"
 	"time"
-	"webooktrial/config"
 	"webooktrial/internal/repository"
 	"webooktrial/internal/repository/dao"
 	"webooktrial/internal/service"
@@ -26,14 +24,9 @@ func main() {
 
 	u := initUser(db)
 	u.RegisterRoutes(server)
-
-	server.GET("/hello", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "你好，你来了.")
-	})
 	if err := server.Run(":8080"); err != nil {
 		panic(err)
 	}
-
 }
 
 func initWebServer() *gin.Engine {
@@ -48,7 +41,7 @@ func initWebServer() *gin.Engine {
 	})
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr: config.Config.Redis.Addr,
+		Addr: "webooktrial-redis:6380",
 	})
 	server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
 	server.Use(cors.New(cors.Config{
@@ -73,7 +66,7 @@ func initWebServer() *gin.Engine {
 	store := cookie.NewStore([]byte("secret"))
 	server.Use(sessions.Sessions("mysession", store))
 	// 步骤3
-	server.Use(middleware.NewLoginMiddlewareBuilder().
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signup").
 		IgnorePaths("/users/login").Build())
 	// v1
@@ -95,7 +88,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 }
 
 func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(webooktrial-mysql:11309)/webook"))
+	db, err := gorm.Open(mysql.Open("root:root@tcp(webooktrial-mysql:3308)/webook"))
 	if err != nil {
 		// 我只会在初始化过程中 panic
 		// panic 相当于整个 goroutine 结束
