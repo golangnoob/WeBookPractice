@@ -1,21 +1,21 @@
 package main
 
 import (
+	"strings"
+	"time"
+
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"strings"
-	"time"
+
+	"webooktrial/config"
 	"webooktrial/internal/repository"
 	"webooktrial/internal/repository/dao"
 	"webooktrial/internal/service"
 	"webooktrial/internal/web"
 	"webooktrial/internal/web/middleware"
-	"webooktrial/pkg/ginx/middlewares/ratelimit"
 )
 
 func main() {
@@ -40,10 +40,10 @@ func initWebServer() *gin.Engine {
 		println("这是第二个 middleware")
 	})
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: "webooktrial-redis:6380",
-	})
-	server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
+	//redisClient := redis.NewClient(&redis.Options{
+	//	Addr: "webooktrial-redis:6380",
+	//})
+	//server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
 	server.Use(cors.New(cors.Config{
 		//AllowOrigins: []string{"*"},
 		//AllowMethods: []string{"POST", "GET"},
@@ -63,8 +63,8 @@ func initWebServer() *gin.Engine {
 	}))
 
 	// 步骤1
-	store := cookie.NewStore([]byte("secret"))
-	server.Use(sessions.Sessions("mysession", store))
+	//store := cookie.NewStore([]byte("secret"))
+	//server.Use(sessions.Sessions("mysession", store))
 	// 步骤3
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePaths("/users/signup").
@@ -79,6 +79,13 @@ func initWebServer() *gin.Engine {
 	return server
 }
 
+func initRedis() redis.Cmdable {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: config.Config.Redis.Addr,
+	})
+	return redisClient
+}
+
 func initUser(db *gorm.DB) *web.UserHandler {
 	ud := dao.NewUserDao(db)
 	repo := repository.NewUserRepository(ud)
@@ -88,7 +95,7 @@ func initUser(db *gorm.DB) *web.UserHandler {
 }
 
 func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(webooktrial-mysql:3308)/webook"))
+	db, err := gorm.Open(mysql.Open(config.Config.DB.DSN))
 	if err != nil {
 		// 我只会在初始化过程中 panic
 		// panic 相当于整个 goroutine 结束

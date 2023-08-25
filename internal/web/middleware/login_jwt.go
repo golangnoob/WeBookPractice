@@ -2,12 +2,14 @@ package middleware
 
 import (
 	"encoding/gob"
-	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+
 	"webooktrial/internal/web"
 )
 

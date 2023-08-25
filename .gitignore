@@ -3,9 +3,12 @@
 *.iws
 *.iml
 *.ipr
+
 modules.xml
 webooktrial
 target/
+
+internal/service/sms/tencent/service_test.go
 
 **/.idea
 **/*.iws

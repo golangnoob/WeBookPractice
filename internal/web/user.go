@@ -1,13 +1,16 @@
 package web
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
+
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
-	"time"
+
 	"webooktrial/internal/domain"
 	"webooktrial/internal/service"
 )
@@ -90,7 +93,7 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 		Password: req.Password,
 	})
 
-	if err == service.ErrUserDuplicateEmail {
+	if errors.Is(err, service.ErrUserDuplicateEmail) {
 		ctx.String(http.StatusOK, "邮箱冲突")
 		return
 	}
@@ -111,7 +114,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		return
 	}
 	user, err := u.svc.Login(ctx, req.Email, req.Password)
-	if err == service.ErrInvalidUserOrPassword {
+	if errors.Is(err, service.ErrInvalidUserOrPassword) {
 		ctx.String(http.StatusOK, "用户名或密码不对")
 		return
 	}
@@ -152,7 +155,7 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 		return
 	}
 	user, err := u.svc.Login(ctx, req.Email, req.Password)
-	if err == service.ErrInvalidUserOrPassword {
+	if errors.Is(err, service.ErrInvalidUserOrPassword) {
 		ctx.String(http.StatusOK, "用户名或密码不对")
 		return
 	}
