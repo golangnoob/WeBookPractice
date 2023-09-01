@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -11,34 +12,52 @@ import (
 )
 
 var (
-	ErrUserDuplicateEmail = errors.New("邮箱冲突")
-	ErrUserNotFound       = gorm.ErrRecordNotFound
+	ErrUserDuplicate = errors.New("邮箱冲突或手机号冲突")
+	ErrUserNotFound  = gorm.ErrRecordNotFound
 )
 
-type UserDao struct {
+type UserDAO interface {
+	FindByEmail(ctx context.Context, email string) (User, error)
+	FindById(ctx context.Context, id int64) (User, error)
+	FindByPhone(ctx context.Context, phone string) (User, error)
+	Insert(ctx context.Context, u User) error
+	Update(ctx context.Context, u User) error
+	Select(ctx context.Context, id int64) (User, error)
+}
+
+type GormUserDao struct {
 	db *gorm.DB
 }
 
-func NewUserDao(db *gorm.DB) *UserDao {
-	return &UserDao{
+func NewUserDAO(db *gorm.DB) UserDAO {
+	return &GormUserDao{
 		db: db,
 	}
 }
 
-func (dao *UserDao) FindByEmail(ctx context.Context, email string) (User, error) {
+func (dao *GormUserDao) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
-	err = fmt.Errorf("findByEmail fail, err:%v", err)
+	if err != nil {
+		err = fmt.Errorf("findByEmail fail, err:%v", err)
+	}
+
 	return u, err
 }
 
-func (dao *UserDao) FindById(ctx context.Context, id int64) (User, error) {
+func (dao *GormUserDao) FindByPhone(ctx context.Context, Phone string) (User, error) {
+	var u User
+	err := dao.db.WithContext(ctx).Where("phone = ?", Phone).Error
+	return u, err
+}
+
+func (dao *GormUserDao) FindById(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Where("`id` = ?", id).First(&u).Error
 	return u, err
 }
 
-func (dao *UserDao) Insert(ctx context.Context, u User) error {
+func (dao *GormUserDao) Insert(ctx context.Context, u User) error {
 	// 存毫秒数
 	now := time.Now().UnixMilli()
 	u.Utime = now
@@ -48,21 +67,21 @@ func (dao *UserDao) Insert(ctx context.Context, u User) error {
 	if errors.As(err, &mysqlErr) {
 		const uniqueConflictsErrNo uint16 = 1062
 		if mysqlErr.Number == uniqueConflictsErrNo {
-			//
-			return ErrUserDuplicateEmail
+			// 邮箱冲突 or 手机号码冲突
+			return ErrUserDuplicate
 		}
 	}
 	return err
 }
 
-func (dao *UserDao) Update(ctx context.Context, u User) error {
+func (dao *GormUserDao) Update(ctx context.Context, u User) error {
 	now := time.Now().UnixMilli()
 	u.Utime = now
 	err := dao.db.WithContext(ctx).Model(&User{}).Where(&User{ID: u.ID}).Updates(u).Error
 	return err
 }
 
-func (dao *UserDao) Select(ctx context.Context, id int64) (User, error) {
+func (dao *GormUserDao) Select(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Model(&User{}).Where(&User{ID: id}).First(&u).Error
 	return u, err
@@ -73,7 +92,15 @@ func (dao *UserDao) Select(ctx context.Context, id int64) (User, error) {
 type User struct {
 	ID int64 `gorm:"primaryKey,autoIncrement"`
 	// 全部用户唯一
-	Email    string `gorm:"unique"`
+	Email sql.NullString `gorm:"unique"`
+
+	// 唯一索引允许有多个空值
+	// 但是不能有多个 ""
+	Phone sql.NullString `gorm:"unique"`
+	// 最大问题就是，你要解引用
+	// 你要判空
+	//Phone *string
+
 	Password string
 	// 往这里面加
 
