@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"webooktrial/internal/domain"
-	"webooktrial/internal/repository/cache"
+	"webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
 )
 
@@ -27,10 +27,10 @@ type UserRepository interface {
 
 type CachedUserRepository struct {
 	dao   dao.UserDAO
-	cache cache.UserCache
+	cache redis.UserCache
 }
 
-func NewUserRepository(dao dao.UserDAO, c cache.UserCache) UserRepository {
+func NewUserRepository(dao dao.UserDAO, c redis.UserCache) UserRepository {
 	return &CachedUserRepository{
 		dao:   dao,
 		cache: c,

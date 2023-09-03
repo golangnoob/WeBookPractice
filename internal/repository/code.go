@@ -3,12 +3,13 @@ package repository
 import (
 	"context"
 
-	"webooktrial/internal/repository/cache"
+	cache2 "webooktrial/internal/repository/cache"
+	"webooktrial/internal/repository/cache/redis"
 )
 
 var (
-	ErrCodeSendTooMany        = cache.ErrCodeSendTooMany
-	ErrCodeVerifyTooManyTimes = cache.ErrCodeVerifyTooManyTimes
+	ErrCodeSendTooMany        = redis.ErrCodeSendTooMany
+	ErrCodeVerifyTooManyTimes = redis.ErrCodeVerifyTooManyTimes
 )
 
 type CodeRepository interface {
@@ -17,10 +18,10 @@ type CodeRepository interface {
 }
 
 type CachedCodeRepository struct {
-	cache cache.CodeCache
+	cache cache2.CodeCache
 }
 
-func NewCodeRepository(c cache.CodeCache) CodeRepository {
+func NewCodeRepository(c cache2.CodeCache) CodeRepository {
 	return &CachedCodeRepository{
 		cache: c,
 	}

@@ -1,4 +1,4 @@
-package cache
+package redis
 
 import (
 	"context"
@@ -18,34 +18,34 @@ type UserCache interface {
 	Set(ctx context.Context, u domain.User) error
 }
 
-type RedisUserCache struct {
+type redisUserCache struct {
 	// 传单机 Redis 可以
 	// 传 cluster 的 Redis 也可以
 	client     redis.Cmdable
 	expiration time.Duration
 }
 
-func NewUserCacheV1(addr string) *RedisUserCache {
-	client := redis.NewClient(&redis.Options{})
-	return &RedisUserCache{
-		client:     client,
-		expiration: time.Minute * 15,
-	}
-}
+//func NewUserCacheV1(addr string) *redisUserCache {
+//	client := redis.NewClient(&redis.Options{})
+//	return &redisUserCache{
+//		client:     client,
+//		expiration: time.Minute * 15,
+//	}
+//}
 
 // NewUserCache
 // A 用到了 B，B 一定是 A 的字段 => 规避包变量、包方法，都非常缺乏扩展性
 // A 用到了 B，A 绝对不初始化 B，而是外面注入 => 保持依赖注入(DI, Dependency Injection)和依赖反转(IOC)
 // expiration 1s, 1m
 func NewUserCache(client redis.Cmdable) UserCache {
-	return &RedisUserCache{
+	return &redisUserCache{
 		client:     client,
 		expiration: time.Minute * 15,
 	}
 }
 
 // Get 如果没有数据，返回一个特定的 error
-func (cache *RedisUserCache) Get(ctx context.Context, id int64) (domain.User, error) {
+func (cache *redisUserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 	key := cache.key(id)
 	// 数据不存在，err = redis.Nil
 	val, err := cache.client.Get(ctx, key).Bytes()
@@ -61,7 +61,7 @@ func (cache *RedisUserCache) Get(ctx context.Context, id int64) (domain.User, er
 	return u, err
 }
 
-func (cache *RedisUserCache) Set(ctx context.Context, u domain.User) error {
+func (cache *redisUserCache) Set(ctx context.Context, u domain.User) error {
 	val, err := json.Marshal(u)
 	if err != nil {
 		return err
@@ -70,6 +70,6 @@ func (cache *RedisUserCache) Set(ctx context.Context, u domain.User) error {
 	return cache.client.Set(ctx, key, val, cache.expiration).Err()
 }
 
-func (cache *RedisUserCache) key(id int64) string {
+func (cache *redisUserCache) key(id int64) string {
 	return fmt.Sprintf("user:info:%d", id)
 }

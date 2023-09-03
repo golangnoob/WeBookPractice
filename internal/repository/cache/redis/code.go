@@ -1,4 +1,4 @@
-package cache
+package redis
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
+
+	"webooktrial/internal/repository/cache"
 )
 
 var (
@@ -23,28 +25,23 @@ var luaSetCode string
 //go:embed lua/verify_code.lua
 var luaVerifyCode string
 
-type CodeCache interface {
-	Set(ctx context.Context, biz, phone, code string) error
-	Verify(ctx context.Context, biz, phone, inputCode string) (bool, error)
-}
-
-type RedisCodeCache struct {
+type redisCodeCache struct {
 	client redis.Cmdable
 }
 
-func NewCodeCacheBestPractice(client redis.Cmdable) *RedisCodeCache {
-	return &RedisCodeCache{
+//func NewCodeCacheBestPractice(client redis.Cmdable) *redisCodeCache {
+//	return &redisCodeCache{
+//		client: client,
+//	}
+//}
+
+func NewCodeCache(client redis.Cmdable) cache.CodeCache {
+	return &redisCodeCache{
 		client: client,
 	}
 }
 
-func NewCodeCache(client redis.Cmdable) CodeCache {
-	return &RedisCodeCache{
-		client: client,
-	}
-}
-
-func (c *RedisCodeCache) Set(ctx context.Context, biz, phone, code string) error {
+func (c *redisCodeCache) Set(ctx context.Context, biz, phone, code string) error {
 	res, err := c.client.Eval(ctx, luaSetCode, []string{c.key(biz, phone)}, code).Int()
 	if err != nil {
 		return err
@@ -64,7 +61,7 @@ func (c *RedisCodeCache) Set(ctx context.Context, biz, phone, code string) error
 	}
 }
 
-func (c *RedisCodeCache) Verify(ctx context.Context, biz, phone, inputCode string) (bool, error) {
+func (c *redisCodeCache) Verify(ctx context.Context, biz, phone, inputCode string) (bool, error) {
 	res, err := c.client.Eval(ctx, luaVerifyCode, []string{c.key(biz, phone)}, inputCode).Int()
 	if err != nil {
 		return false, err
@@ -83,11 +80,11 @@ func (c *RedisCodeCache) Verify(ctx context.Context, biz, phone, inputCode strin
 	return false, ErrUnknownForCode
 }
 
-//func (c *RedisCodeCache) Verify(ctx context.Context, biz, phone, code string) error {
+//func (c *redisCodeCache) Verify(ctx context.Context, biz, phone, code string) error {
 //
 //}
 
-func (c *RedisCodeCache) key(biz, phone string) string {
+func (c *redisCodeCache) key(biz, phone string) string {
 	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 }
 

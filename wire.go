@@ -7,7 +7,7 @@ import (
 	"github.com/google/wire"
 
 	"webooktrial/internal/repository"
-	"webooktrial/internal/repository/cache"
+	"webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
 	"webooktrial/internal/service"
 	"webooktrial/internal/web"
@@ -22,8 +22,8 @@ func InitWebServer() *gin.Engine {
 		// 初始化 DAO
 		dao.NewUserDAO,
 
-		cache.NewUserCache,
-		cache.NewCodeCache,
+		redis.NewUserCache,
+		redis.NewCodeCache,
 
 		repository.NewUserRepository,
 		repository.NewCodeRepository,
