@@ -62,7 +62,12 @@ func (l *localCodeCache) Verify(ctx context.Context, biz, phone, inputCode strin
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	code, err := l.client.Get([]byte(key))
-	if err != nil || l.cached[key].count < 0 {
+	if err != nil {
+		return false, ErrUnknownForCode
+	}
+	if l.cached[key].count == 0 {
+		l.client.Del([]byte(key))
+		delete(l.cached, key)
 		return false, ErrCodeVerifyTooManyTimes
 	}
 	if string(code) == inputCode {
