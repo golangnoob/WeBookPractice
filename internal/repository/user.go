@@ -85,18 +85,12 @@ func (r *CachedUserRepository) FindById(ctx context.Context, id int64) (domain.U
 	if err != nil {
 		return domain.User{}, err
 	}
-
 	u = r.entityToDomain(ue)
 
 	go func() {
-		err = r.cache.Set(ctx, u)
-		if err != nil {
-			// 我这里怎么办？
-			// 打日志，做监控
-			//return domain.User{}, err
-		}
+		_ = r.cache.Set(ctx, u)
 	}()
-	return u, err
+	return u, nil
 
 	// 这里怎么办？ err = io.EOF
 	// 要不要去数据库加载？

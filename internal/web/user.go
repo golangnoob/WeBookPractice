@@ -69,6 +69,20 @@ func (u *UserHandler) LoginSMS(ctx *gin.Context) {
 	if err := ctx.Bind(&req); err != nil {
 		return
 	}
+	if len(req.Phone) != 11 {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "请输入合法的手机号",
+		})
+		return
+	}
+	if len(req.Code) != 6 {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "请输入合法的验证码",
+		})
+		return
+	}
 	// 这边，可以加上各种校验
 	ok, err := u.codeSvc.Verify(ctx, biz, req.Phone, req.Code)
 	if err != nil {
@@ -115,6 +129,13 @@ func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
 	var req Req
 	if err := ctx.Bind(&req); err != nil {
 		return
+	}
+
+	if req.Phone == "" {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "输入有误",
+		})
 	}
 	err := u.codeSvc.Send(ctx, biz, req.Phone)
 	switch {
@@ -289,10 +310,6 @@ func (u *UserHandler) Logout(ctx *gin.Context) {
 		return
 	}
 	ctx.String(http.StatusOK, "退出登录成功")
-}
-
-func (u *UserHandler) EditJWT(ctx *gin.Context) {
-	// TODO IMPLEMENT
 }
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
