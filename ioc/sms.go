@@ -6,5 +6,6 @@ import (
 )
 
 func InitSMSService() sms.Service {
+	// 换内存，还是换别的
 	return memory.NewService()
 }
