@@ -8,7 +8,7 @@ import (
 	"webooktrial/pkg/ratelimit"
 )
 
-var errLimited = fmt.Errorf("出发了限流")
+var errLimited = fmt.Errorf("触发了限流")
 
 type RatelimitSMSService struct {
 	svc     sms.Service
