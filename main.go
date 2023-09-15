@@ -12,7 +12,7 @@ func main() {
 	server.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "你好，你来了")
 	})
-	
+
 	if err := server.Run(":8080"); err != nil {
 		panic(err)
 	}

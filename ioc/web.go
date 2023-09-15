@@ -9,22 +9,26 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"webooktrial/internal/web"
+	ijwt "webooktrial/internal/web/jwt"
 	"webooktrial/internal/web/middleware"
 	"webooktrial/pkg/ginx/middlewares/ratelimit"
+	ratelimit2 "webooktrial/pkg/ratelimit"
 )
 
-func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler) *gin.Engine {
+func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler,
+	oauth2WechatHandler *web.OAuth2WechatHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(mdls...)
 	userHdl.RegisterRoutes(server)
+	oauth2WechatHandler.RegisterRoutes(server)
 	return server
 }
 
-func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
+func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		corsHdl(),
-		IgnorePathsHdl(),
-		ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
+		IgnorePathsHdl(jwtHdl),
+		ratelimit.NewBuilder(ratelimit2.NewRedisSlidingWindowLimiter(redisClient, time.Second, 1000)).Build(),
 	}
 }
 
@@ -33,8 +37,8 @@ func corsHdl() gin.HandlerFunc {
 		//AllowOrigins: []string{"*"},
 		//AllowMethods: []string{"POST", "GET"},
 		AllowHeaders: []string{"Content-Type", "Authorization"},
-		// 允许前端获取Header中key为"x-jwt-token"的val
-		ExposeHeaders: []string{"x-jwt-token"},
+		// 允许前端获取 Header 中 key 为"x-jwt-token"和"x-refresh-token"的val
+		ExposeHeaders: []string{"x-jwt-token", "x-refresh-token"},
 		// 是否允许你带 cookie 之类的东西
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {
@@ -48,10 +52,13 @@ func corsHdl() gin.HandlerFunc {
 	})
 }
 
-func IgnorePathsHdl() gin.HandlerFunc {
-	return middleware.NewLoginJWTMiddlewareBuilder().
+func IgnorePathsHdl(jwtHdl ijwt.Handler) gin.HandlerFunc {
+	return middleware.NewLoginJWTMiddlewareBuilder(jwtHdl).
 		IgnorePaths("/users/signup").
 		IgnorePaths("/users/login").
 		IgnorePaths("/users/login_sms/code/send").
-		IgnorePaths("/users/login_sms").Build()
+		IgnorePaths("/oauth2/wechat/authurl").
+		IgnorePaths("/oauth2/wechat/callback").
+		IgnorePaths("/users/login_sms").
+		IgnorePaths("users/refresh_token").Build()
 }

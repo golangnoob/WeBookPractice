@@ -20,6 +20,7 @@ type UserDAO interface {
 	FindByEmail(ctx context.Context, email string) (User, error)
 	FindById(ctx context.Context, id int64) (User, error)
 	FindByPhone(ctx context.Context, phone string) (User, error)
+	FindByWechat(ctx context.Context, openId string) (User, error)
 	Insert(ctx context.Context, u User) error
 	Update(ctx context.Context, u User) error
 	Select(ctx context.Context, id int64) (User, error)
@@ -35,11 +36,18 @@ func NewUserDAO(db *gorm.DB) UserDAO {
 	}
 }
 
+func (dao *GormUserDao) FindByWechat(ctx context.Context, openId string) (User, error) {
+	var u User
+	err := dao.db.WithContext(ctx).Where("wechat_open_id = ?", openId).First(&u).Error
+	//err := dao.db.WithContext(ctx).First(&u, "email = ?", email).Error
+	return u, err
+}
+
 func (dao *GormUserDao) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	if err != nil {
-		err = fmt.Errorf("findByEmail fail, err:%v", err)
+		err = fmt.Errorf("findByEmail fail, err:%w", err)
 	}
 
 	return u, err
@@ -108,8 +116,11 @@ type User struct {
 	Nickname string
 	Birthday string
 	Describe string
+	// 微信的字段
+	WeChatUnionId sql.NullString
+	WeChatOpenId  sql.NullString
 
-	// 毫秒级
+	// 毫秒级 Ctime 创建时间， Utime更新时间
 	Ctime int64
 	Utime int64
 }
