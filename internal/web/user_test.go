@@ -18,6 +18,7 @@ import (
 	"webooktrial/internal/domain"
 	"webooktrial/internal/service"
 	svcmocks "webooktrial/internal/service/mocks"
+	ijwt "webooktrial/internal/web/jwt"
 )
 
 func TestEncrypt(t *testing.T) {
@@ -35,7 +36,7 @@ func TestNil(t *testing.T) {
 }
 
 func testTypeAssert(c any) {
-	_, ok := c.(*UserClaims)
+	_, ok := c.(*ijwt.UserClaims)
 	println(ok)
 }
 
@@ -182,7 +183,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 			defer ctrl.Finish()
 			server := gin.Default()
 			// 目前用不上 codeSvc
-			h := NewUserHandler(tc.mock(ctrl), nil)
+			h := NewUserHandler(tc.mock(ctrl), nil, nil)
 			h.RegisterRoutes(server)
 
 			req, err := http.NewRequest(http.MethodPost,
@@ -207,7 +208,7 @@ func TestUserHandler_SignUp(t *testing.T) {
 func TestUserHandler_LoginSMS(t *testing.T) {
 	testCases := []struct {
 		name     string
-		mock     func(ctrl *gomock.Controller) (service.UserService, service.CodeService)
+		mock     func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler)
 		reqBody  string
 		wantCode int
 		wantBody Result
@@ -215,10 +216,10 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 	}{
 		{
 			name: "手机号码不合法",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				userSvc := svcmocks.NewMockUserService(ctrl)
 				codeSvc := svcmocks.NewMockCodeService(ctrl)
-				return userSvc, codeSvc
+				return userSvc, codeSvc, nil
 			},
 			reqBody: `
 {
@@ -234,10 +235,10 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 		},
 		{
 			name: "验证码不合法",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				userSvc := svcmocks.NewMockUserService(ctrl)
 				codeSvc := svcmocks.NewMockCodeService(ctrl)
-				return userSvc, codeSvc
+				return userSvc, codeSvc, nil
 			},
 			reqBody: `
 {
@@ -253,12 +254,12 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 		},
 		{
 			name: "验证码系统错误",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				userSvc := svcmocks.NewMockUserService(ctrl)
 				codeSvc := svcmocks.NewMockCodeService(ctrl)
 				codeSvc.EXPECT().Verify(gomock.Any(), "login", "12345678912", "123456").
 					Return(false, errors.New("随便来个错误"))
-				return userSvc, codeSvc
+				return userSvc, codeSvc, nil
 			},
 			reqBody: `
 {
@@ -274,12 +275,12 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 		},
 		{
 			name: "验证码错误",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				userSVC := svcmocks.NewMockUserService(ctrl)
 				codeSvc := svcmocks.NewMockCodeService(ctrl)
 				codeSvc.EXPECT().Verify(gomock.Any(), "login", "12345678912", "123456").
 					Return(false, nil)
-				return userSVC, codeSvc
+				return userSVC, codeSvc, nil
 			},
 			reqBody: `
 {
@@ -295,7 +296,8 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 		},
 		{
 			name: "验证码校验通过，用户登录成功",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			uid:  6,
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				userSvc := svcmocks.NewMockUserService(ctrl)
 				codeSvc := svcmocks.NewMockCodeService(ctrl)
 				userSvc.EXPECT().FindOrCreate(gomock.Any(), "12345678912").
@@ -305,7 +307,9 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 					}, nil)
 				codeSvc.EXPECT().Verify(gomock.Any(), "login", "12345678912", "123456").
 					Return(true, nil)
-				return userSvc, codeSvc
+				myJwt := ijwt.NewRedisJWTHandler(nil)
+
+				return userSvc, codeSvc, myJwt
 			},
 			reqBody: `
 {
@@ -320,7 +324,7 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 		},
 		{
 			name: "验证码校验通过，数据库异常",
-			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService) {
+			mock: func(ctrl *gomock.Controller) (service.UserService, service.CodeService, ijwt.Handler) {
 				userSvc := svcmocks.NewMockUserService(ctrl)
 				codeSvc := svcmocks.NewMockCodeService(ctrl)
 				userSvc.EXPECT().FindOrCreate(gomock.Any(), "12345678912").
@@ -329,7 +333,8 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 					}, errors.New("系统内部错误"))
 				codeSvc.EXPECT().Verify(gomock.Any(), "login", "12345678912", "123456").
 					Return(true, nil)
-				return userSvc, codeSvc
+				myJwt := ijwt.NewRedisJWTHandler(nil)
+				return userSvc, codeSvc, myJwt
 			},
 			reqBody: `
 {
@@ -368,14 +373,28 @@ func TestUserHandler_LoginSMS(t *testing.T) {
 			assert.Equal(t, tc.wantBody, webRes)
 			tokenStr := resp.Header().Get("X-Jwt-Token")
 			if tokenStr != "" {
-				claims := &UserClaims{}
-				_, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-					return []byte("bCTF)phY%[u5yA=Wl60mt]Q,SbVRwP!H"), nil
+				claims := &ijwt.UserClaims{}
+				_, err = jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+					return ijwt.AtKey, nil
 				})
 				if err != nil {
 					t.Fatal("解析token失败:", err)
 				}
 				assert.Equal(t, tc.uid, claims.Uid)
+			} else {
+				t.Log("用户没有登录")
+			}
+			tokenStr = resp.Header().Get("X-Refresh-Token")
+			if tokenStr != "" {
+				claims := &ijwt.UserClaims{}
+				_, err = jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+					return ijwt.RtKey, nil
+				})
+				if err != nil {
+					t.Fatal("解析jwttoken 失败")
+				}
+				assert.Equal(t, tc.uid, claims.Uid)
+
 			} else {
 				t.Log("用户没有登录")
 			}

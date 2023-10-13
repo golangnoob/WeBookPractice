@@ -48,6 +48,9 @@ func (svc *CodeSCService) Send(ctx context.Context, biz, phone string) error {
 	}
 	// 存储成功，然后发送出去
 	err = svc.smsSvc.Send(ctx, codeTplId, []string{code}, phone)
+	if err != nil {
+		err = fmt.Errorf("发送短信出现异常 %w", err)
+	}
 	//if err != nil {
 	// 这个地方怎么办？
 	// 这意味着，Redis 有这个验证码，但是不好意思，

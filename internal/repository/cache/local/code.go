@@ -21,14 +21,23 @@ type localCodeCache struct {
 	client        *freecache.Cache
 	expireSeconds int
 	cached        map[string]*CachedCode
-	lock          *sync.Mutex
+	lock          sync.Mutex
 }
 
 func NewCodeCache() cache.CodeCache {
 	return &localCodeCache{
 		client:        freecache.NewCache(100 * 1024 * 1024),
 		expireSeconds: 5,
-		lock:          &sync.Mutex{},
+		lock:          sync.Mutex{},
+		cached:        make(map[string]*CachedCode, 100),
+	}
+}
+
+func NewCodeCacheV1(client *freecache.Cache, expireSeconds int) cache.CodeCache {
+	return &localCodeCache{
+		client:        client,
+		expireSeconds: expireSeconds,
+		lock:          sync.Mutex{},
 		cached:        make(map[string]*CachedCode, 100),
 	}
 }

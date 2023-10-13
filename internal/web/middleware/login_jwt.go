@@ -43,7 +43,7 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		claims := &ijwt.UserClaims{}
 		// ParseWithClaims 里面，一定要传入指针
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-			return []byte("bCTF)phY%[u5yA=Wl60mt]Q,SbVRwP!H"), nil
+			return ijwt.AtKey, nil
 		})
 		if err != nil {
 			// 没登录

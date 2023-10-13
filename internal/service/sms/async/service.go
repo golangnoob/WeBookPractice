@@ -2,7 +2,7 @@ package async
 
 //type SMSService struct {
 //	svc  sms.Service
-//	repo repository.SMSAysncReqRepository
+//	repo repository.SMSAsyncReqRepository
 //}
 //
 //func NewSMSService() *SMSService {
