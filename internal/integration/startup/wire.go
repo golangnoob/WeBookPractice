@@ -7,9 +7,10 @@ import (
 	"github.com/google/wire"
 
 	"webooktrial/internal/repository"
-	"webooktrial/internal/repository/article"
+	article2 "webooktrial/internal/repository/article"
 	"webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
+	"webooktrial/internal/repository/dao/article"
 	"webooktrial/internal/service"
 	"webooktrial/internal/web"
 	ijwt "webooktrial/internal/web/jwt"
@@ -23,15 +24,20 @@ var userSvcProvider = wire.NewSet(
 	repository.NewUserRepository,
 	service.NewUserService)
 
+var articleSvcProvider = wire.NewSet(
+	article.NewGormArticleDao,
+	article2.NewArticleRepository,
+	service.NewArticleService)
+
 func InitWebServer() *gin.Engine {
 	wire.Build(
 		thirdProvider,
 		userSvcProvider,
-		//articleSvcProvider,
+		articleSvcProvider,
 		redis.NewCodeCache,
-		dao.NewGormArticleDao,
+		//article.NewGormArticleDao,
 		repository.NewCodeRepository,
-		article.NewArticleRepository,
+		//article2.NewArticleRepository,
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
 		ioc.InitSMSService,
@@ -39,12 +45,12 @@ func InitWebServer() *gin.Engine {
 		// 指定啥也不干的 wechat service
 		InitPhantomWechatService,
 		service.NewCodeService,
-		service.NewArticleService,
+		//service.NewArticleService,
 		// handler 部分
 		web.NewUserHandler,
 		web.NewOAuth2WechatHandler,
 		web.NewArticleHandler,
-		InitWechatHandlerConfig,
+		//InitWechatHandlerConfig,
 		ijwt.NewRedisJWTHandler,
 
 		// gin 的中间件
@@ -57,12 +63,15 @@ func InitWebServer() *gin.Engine {
 	return gin.Default()
 }
 
-func InitArticleHandler() *web.ArticleHandler {
+func InitArticleHandler(dao article.ArticleDao) *web.ArticleHandler {
 	wire.Build(thirdProvider,
-		dao.NewGormArticleDao,
+		//userSvcProvider,
+		//cache.NewRedisArticleCache,
+		//wire.InterfaceValue(new(article.ArticleDAO), dao),
+		//article.NewGormArticleDao,
+		article2.NewArticleRepository,
 		service.NewArticleService,
 		web.NewArticleHandler,
-		article.NewArticleRepository,
 	)
 	return &web.ArticleHandler{}
 }

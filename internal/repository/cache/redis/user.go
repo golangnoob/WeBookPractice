@@ -73,3 +73,20 @@ func (cache *redisUserCache) Set(ctx context.Context, u domain.User) error {
 func (cache *redisUserCache) key(id int64) string {
 	return fmt.Sprintf("user:info:%d", id)
 }
+
+// main 函数里面初始化好
+//var RedisClient *redis.Client
+
+//func GetUser(ctx context.Context, id int64) {
+//	RedisClient.Get()
+//}
+
+//type UnifyCache interface {
+//	Get(ctx context.Context, firstPageKey string)
+//	Set(ctx context.Context, firstPageKey string, val any, expiration time.Duration)
+//}
+//
+//
+//type NewRedisCache() UnifyCache {
+//
+//}

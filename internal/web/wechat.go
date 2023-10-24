@@ -20,7 +20,7 @@ type OAuth2WechatHandler struct {
 	userSvc service.UserService
 	ijwt.Handler
 	stateKey []byte
-	cfg      WechatHandlerConfig
+	//cfg      WechatHandlerConfig
 }
 
 type WechatHandlerConfig struct {
@@ -29,13 +29,13 @@ type WechatHandlerConfig struct {
 }
 
 func NewOAuth2WechatHandler(svc wechat.Service, userSvc service.UserService,
-	cfg WechatHandlerConfig, jwtHdl ijwt.Handler) *OAuth2WechatHandler {
+	jwtHdl ijwt.Handler) *OAuth2WechatHandler {
 	return &OAuth2WechatHandler{
 		svc:      svc,
 		userSvc:  userSvc,
 		stateKey: []byte("mviQXWteUabiH9VaDZd3QnERKbDSlKCr"),
-		cfg:      cfg,
-		Handler:  jwtHdl,
+		//cfg:      cfg,
+		Handler: jwtHdl,
 	}
 }
 
@@ -79,7 +79,8 @@ func (h *OAuth2WechatHandler) setStateCookie(ctx *gin.Context, state string) err
 		return err
 	}
 	ctx.SetCookie("jwt-state", tokenStr, 600,
-		"/oauth2/wechat/callback", "", h.cfg.Secure, true)
+		// 线上把 secure 做成 true
+		"/oauth2/wechat/callback", "", false, true)
 	return nil
 }
 

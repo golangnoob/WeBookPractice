@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"webooktrial/internal/domain"
 	"webooktrial/internal/repository/article"
 	"webooktrial/pkg/logger"
@@ -13,13 +15,34 @@ type ArticleService interface {
 	Save(ctx context.Context, art domain.Article) (int64, error)
 	Publish(ctx context.Context, art domain.Article) (int64, error)
 	PublishV1(ctx context.Context, art domain.Article) (int64, error)
+	Withdraw(ctx *gin.Context, art domain.Article) error
+	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
+	GetById(ctx context.Context, id int64) (domain.Article, error)
+	GetPublishedById(ctx context.Context, id int64) (domain.Article, error)
 }
 
 type ArticleCoreService struct {
-	repo   article.ArticleRepository
-	author article.ArticleRepository
+	repo article.ArticleRepository
+
+	// V1 依靠两个不同的 repository 来解决这种跨表，或者跨库的问题
+	author article.ArticleAuthorRepository
 	reader article.ArticleReaderRepository
 	l      logger.LoggerV1
+}
+
+func (a *ArticleCoreService) List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error) {
+	return a.repo.List(ctx, uid, offset, limit)
+}
+
+func (a *ArticleCoreService) GetById(ctx context.Context, id int64) (domain.Article, error) {
+	return a.repo.GetByID(ctx, id)
+
+}
+
+func (a *ArticleCoreService) GetPublishedById(ctx context.Context, id int64) (domain.Article, error) {
+	// 另一个选项，在这里组装 Author，调用 UserService
+	return a.repo.GetPublishedById(ctx, id)
+
 }
 
 func NewArticleService(repo article.ArticleRepository) ArticleService {
@@ -37,12 +60,13 @@ func NewArticleServiceV1(author article.ArticleAuthorRepository,
 	}
 }
 
+func (a *ArticleCoreService) Withdraw(ctx *gin.Context, art domain.Article) error {
+	return a.repo.SyncStatus(ctx, art.Id, art.Author.Id, domain.ArticleStatusPrivate)
+}
+
 func (a *ArticleCoreService) Publish(ctx context.Context, art domain.Article) (int64, error) {
-	// 制作库
-	//id, err := a.repo.Create(ctx, art)
-	//// 线上库呢？
-	//a.repo.SyncToLiveDB(ctx, art)
-	panic("implement me")
+	art.Status = domain.ArticleStatusPublished
+	return a.repo.Sync(ctx, art)
 }
 
 func (a *ArticleCoreService) PublishV1(ctx context.Context, art domain.Article) (int64, error) {
@@ -82,6 +106,7 @@ func (a *ArticleCoreService) PublishV1(ctx context.Context, art domain.Article) 
 }
 
 func (a *ArticleCoreService) Save(ctx context.Context, art domain.Article) (int64, error) {
+	art.Status = domain.ArticleStatusUnpublished
 	if art.Id > 0 {
 		err := a.repo.Update(ctx, art)
 		return art.Id, err

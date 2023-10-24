@@ -10,6 +10,7 @@ import (
 	"webooktrial/internal/repository/article"
 	"webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
+	article2 "webooktrial/internal/repository/dao/article"
 	"webooktrial/internal/service"
 	"webooktrial/internal/web"
 	ijwt "webooktrial/internal/web/jwt"
@@ -24,7 +25,7 @@ func InitWebServer() *gin.Engine {
 
 		// 初始化 DAO
 		dao.NewUserDAO,
-		dao.NewGormArticleDao,
+		article2.NewGormArticleDao,
 
 		redis.NewUserCache,
 		redis.NewCodeCache,
