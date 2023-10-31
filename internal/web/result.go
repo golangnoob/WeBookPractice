@@ -1,5 +1,7 @@
 package web
 
+//type Result = ginx.Result
+
 type Result struct {
 	// 这个叫做业务错误码
 	Code int    `json:"code"`

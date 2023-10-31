@@ -2,6 +2,12 @@ package web
 
 import "webooktrial/internal/domain"
 
+type LikeReq struct {
+	Id int64 `json:"id"`
+	// 点赞和取消点赞，我都准备复用这个
+	Like bool `json:"like"`
+}
+
 type ArticleVO struct {
 	Id    int64  `json:"id"`
 	Title string `json:"title"`
@@ -15,8 +21,17 @@ type ArticleVO struct {
 	// 涉及到国际化，也是后端来处理
 	Status uint8  `json:"status"`
 	Author string `json:"author"`
-	Ctime  string `json:"ctime"`
-	Utime  string `json:"utime"`
+	// 计数
+	ReadCnt    int64 `json:"read_cnt"`
+	LikeCnt    int64 `json:"like_cnt"`
+	CollectCnt int64 `json:"collect_cnt"`
+
+	// 我个人有没有收藏，有没有点赞
+	Liked     bool `json:"liked"`
+	Collected bool `json:"collected"`
+
+	Ctime string `json:"ctime"`
+	Utime string `json:"utime"`
 }
 
 type ListReq struct {

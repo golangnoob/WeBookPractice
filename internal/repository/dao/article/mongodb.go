@@ -12,9 +12,9 @@ import (
 )
 
 type MongoDBDao struct {
-	//client *mongo.Client
+	client *mongo.Client
 	// 代表 webook 的
-	//database *mongo.Database
+	database *mongo.Database
 	// 代表的是制作库
 	col *mongo.Collection
 	// 代表的是线上库
@@ -64,18 +64,35 @@ func (m *MongoDBDao) UpdateById(ctx context.Context, art Article) error {
 }
 
 func (m *MongoDBDao) GetByAuthor(ctx context.Context, author int64, offset, limit int) ([]Article, error) {
-	//TODO implement me
-	panic("implement me")
+	var arts []Article
+	//cur, err := m.col.Aggregate(ctx, bson.D{
+	//  bson.E{Key: "$match", Value: author},
+	//	bson.E{Key: "$limit", Value: limit},
+	//	bson.E{Key: "$skip", Value: offset}
+	//	})
+	var findOptions *options.FindOptions
+	if limit > 0 {
+		findOptions.SetLimit(int64(limit))
+		findOptions.SetSkip(int64(offset))
+	}
+	cur, err := m.col.Find(ctx, bson.D{bson.E{Key: "author_id", Value: author}}, findOptions)
+	defer cur.Close(ctx)
+	if err == nil {
+		err = cur.All(ctx, &arts)
+	}
+	return arts, err
 }
 
 func (m *MongoDBDao) GetById(ctx context.Context, id int64) (Article, error) {
-	//TODO implement me
-	panic("implement me")
+	var art Article
+	err := m.col.FindOne(ctx, bson.D{bson.E{Key: "id", Value: id}}).Decode(&art)
+	return art, err
 }
 
 func (m *MongoDBDao) GetPubById(ctx context.Context, id int64) (PublishedArticle, error) {
-	//TODO implement me
-	panic("implement me")
+	var pub PublishedArticle
+	err := m.liveCol.FindOne(ctx, bson.D{bson.E{Key: "id", Value: id}}).Decode(&pub)
+	return pub, err
 }
 
 func (m *MongoDBDao) Sync(ctx context.Context, art Article) (int64, error) {
@@ -114,8 +131,33 @@ func (m *MongoDBDao) Sync(ctx context.Context, art Article) (int64, error) {
 }
 
 func (m *MongoDBDao) SyncStatus(ctx context.Context, author, id int64, status uint8) error {
-	//TODO implement me
-	panic("implement me")
+	sess, err := m.client.StartSession()
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"id": id,
+		"author_id": author}
+	update := bson.D{bson.E{"$set", bson.M{
+		"status": status,
+	}}}
+	sess.WithTransaction(ctx, func(sessCtx mongo.SessionContext) (interface{}, error) {
+		res, err := m.col.UpdateOne(sessCtx, filter, update)
+		if err != nil {
+			return nil, err
+		}
+		if res.ModifiedCount != 1 {
+			return nil, ErrPossibleIncorrectAuthor
+		}
+		res, err = m.liveCol.UpdateOne(sessCtx, filter, update)
+		if err != nil {
+			return nil, err
+		}
+		if res.ModifiedCount != 1 {
+			return nil, ErrPossibleIncorrectAuthor
+		}
+		return nil, err
+	})
+	return nil
 }
 
 func NewMongoDBDAOV1(db *mongo.Database, idGen IDGenerator) ArticleDao {
@@ -154,6 +196,7 @@ func InitCollections(db *mongo.Database) error {
 
 func NewMongoDBDAO(db *mongo.Database, node *snowflake.Node) ArticleDao {
 	return &MongoDBDao{
+		client:  db.Client(),
 		col:     db.Collection("articles"),
 		liveCol: db.Collection("published_articles"),
 		node:    node,
