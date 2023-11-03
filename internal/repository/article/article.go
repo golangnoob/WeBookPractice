@@ -16,6 +16,8 @@ import (
 	dao "webooktrial/internal/repository/dao/article"
 )
 
+//go:generate mockgen -source=./article.go -package=repomocks -destination=mocks/article.mock.go ArticleRepository
+
 type ArticleRepository interface {
 	Create(ctx context.Context, art domain.Article) (int64, error)
 	Update(ctx context.Context, art domain.Article) error
@@ -123,7 +125,7 @@ func (c *CachedArticleRepository) SyncStatus(ctx *gin.Context, id int64, author 
 }
 
 func (c *CachedArticleRepository) Sync(ctx context.Context, art domain.Article) (int64, error) {
-	id, err := c.dao.Sync(ctx, c.toEntity(art))
+	id, err := c.dao.(*dao.GormArticleDao).SyncClosure(ctx, c.toEntity(art))
 	if err == nil {
 		c.cache.DelFirstPage(ctx, art.Author.Id)
 		er := c.cache.SetPub(ctx, art)

@@ -12,12 +12,12 @@ services:
     ports:
       #      注意这里我映射为了 13316 端口
       - "13316:3306"
-#  redis:
-#    image: 'bitnami/redis:latest'
-#    environment:
-#      - ALLOW_EMPTY_PASSWORD=yes
-#    ports:
-#      - '6379:6379'
+  redis:
+    image: 'bitnami/redis:latest'
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - '6379:6379'
 ##  etcd:
 ##    image: 'bitnami/etcd:latest'
 ##    environment:
@@ -26,14 +26,14 @@ services:
 ##      #      所以你要用 12379 端口来连接 etcd
 ##      - "12379:2379"
 #
-#  mongo:
-#    image: mongo:6.0
-#    restart: always
-#    environment:
-#      MONGO_INITDB_ROOT_USERNAME: root
-#      MONGO_INITDB_ROOT_PASSWORD: example
-#    ports:
-#      - 27017:27017
+  mongo:
+    image: mongo:6.0
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    ports:
+      - 27017:27017
 
   kafka:
     image: 'bitnami/kafka:3.6.0'

@@ -9,7 +9,6 @@ import (
 )
 
 //go:generate mockgen -source=./interactive.go -package=daomocks -destination=mocks/interactive.mock.go InteractiveDAO
-
 var ErrRecordNotFound = gorm.ErrRecordNotFound
 
 type InteractiveDAO interface {

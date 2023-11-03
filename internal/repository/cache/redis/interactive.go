@@ -24,7 +24,6 @@ const (
 )
 
 //go:generate mockgen -source=./interactive.go -package=cachemocks -destination=mocks/interactive.mock.go InteractiveCache
-
 type InteractiveCache interface {
 	// IncrReadCntIfPresent 如果在缓存中有对应的数据，就 +1
 	IncrReadCntIfPresent(ctx context.Context,

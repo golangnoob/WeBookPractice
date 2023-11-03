@@ -9,6 +9,7 @@ import (
 	"webooktrial/internal/service/sms"
 )
 
+//go:generate mockgen -source=./code.go -package=svcmocks -destination=mocks/code.mock.go CodeService
 const codeTplId = "1777556"
 
 var (

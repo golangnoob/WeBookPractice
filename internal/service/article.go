@@ -7,10 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"webooktrial/internal/domain"
+	events "webooktrial/internal/events/article"
 	"webooktrial/internal/repository/article"
 	"webooktrial/pkg/logger"
 )
 
+//go:generate mockgen -source=./article.go -package=svcmocks -destination=mocks/article.mock.go ArticleService
 type ArticleService interface {
 	Save(ctx context.Context, art domain.Article) (int64, error)
 	Publish(ctx context.Context, art domain.Article) (int64, error)
@@ -18,16 +20,17 @@ type ArticleService interface {
 	Withdraw(ctx *gin.Context, art domain.Article) error
 	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
 	GetById(ctx context.Context, id int64) (domain.Article, error)
-	GetPublishedById(ctx context.Context, id int64) (domain.Article, error)
+	GetPublishedById(ctx context.Context, id int64, uid int64) (domain.Article, error)
 }
 
 type ArticleCoreService struct {
 	repo article.ArticleRepository
 
 	// V1 依靠两个不同的 repository 来解决这种跨表，或者跨库的问题
-	author article.ArticleAuthorRepository
-	reader article.ArticleReaderRepository
-	l      logger.LoggerV1
+	author   article.ArticleAuthorRepository
+	reader   article.ArticleReaderRepository
+	l        logger.LoggerV1
+	producer events.Producer
 }
 
 func (a *ArticleCoreService) List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error) {
@@ -39,15 +42,33 @@ func (a *ArticleCoreService) GetById(ctx context.Context, id int64) (domain.Arti
 
 }
 
-func (a *ArticleCoreService) GetPublishedById(ctx context.Context, id int64) (domain.Article, error) {
+func (a *ArticleCoreService) GetPublishedById(ctx context.Context, id int64, uid int64) (domain.Article, error) {
 	// 另一个选项，在这里组装 Author，调用 UserService
-	return a.repo.GetPublishedById(ctx, id)
-
+	art, err := a.repo.GetPublishedById(ctx, id)
+	if err == nil {
+		go func() {
+			er := a.producer.ProduceReadEvent(
+				// 即便你的消费者要用 art 的里面的数据，
+				// 让它去查询，你不要在 event 里面带
+				ctx, events.ReadEvent{
+					Uid: uid,
+					Aid: id,
+				})
+			if er != nil {
+				a.l.Error("发送读者阅读事件失败")
+			}
+		}()
+	}
+	return art, err
 }
 
-func NewArticleService(repo article.ArticleRepository) ArticleService {
+func NewArticleService(repo article.ArticleRepository,
+	l logger.LoggerV1,
+	producer events.Producer) ArticleService {
 	return &ArticleCoreService{
-		repo: repo,
+		repo:     repo,
+		l:        l,
+		producer: producer,
 	}
 }
 

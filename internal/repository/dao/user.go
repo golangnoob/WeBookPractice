@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:generate mockgen -source=./user.go -package=daomocks -destination=mocks/user.mock.go UserDAO
 var (
 	ErrUserDuplicate = errors.New("邮箱冲突或手机号冲突")
 	ErrUserNotFound  = gorm.ErrRecordNotFound

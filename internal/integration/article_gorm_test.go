@@ -35,7 +35,6 @@ func (s *ArticleGORMHandlerTestSuite) SetupSuite() {
 		})
 	})
 	s.db = startup.InitTestDB()
-
 	hdl := startup.InitArticleHandler(article.NewGormArticleDao(s.db))
 	hdl.RegisterRoutes(s.server)
 }

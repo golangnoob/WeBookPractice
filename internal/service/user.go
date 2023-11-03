@@ -12,6 +12,7 @@ import (
 	"webooktrial/pkg/logger"
 )
 
+//go:generate mockgen -source=./user.go -package=svcmocks -destination=mocks/user.mock.go UserService
 var (
 	ErrUserDuplicateEmail    = repository.ErrUserDuplicate
 	ErrInvalidUserOrPassword = errors.New("账号/邮箱或密码不对")

@@ -11,6 +11,7 @@ import (
 	"webooktrial/internal/domain"
 )
 
+//go:generate mockgen -source=./article.go -package=cachemocks -destination=mocks/article.mock.go ArticleCache
 type ArticleCache interface {
 	GetFirstPage(ctx context.Context, author int64) ([]domain.Article, error)
 	SetFirstPage(ctx context.Context, author int64, arts []domain.Article) error

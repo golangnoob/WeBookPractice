@@ -2,6 +2,7 @@ package sms
 
 import "context"
 
+//go:generate mockgen -source=./types.go -package=smsmocks -destination=mocks/sms.mock.go Service
 type Service interface {
 	Send(ctx context.Context, biz string, args []string, numbers ...string) error
 	//SendV1(ctx context.Context, tpl string, args []NamedArg, numbers ...string) error

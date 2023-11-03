@@ -40,7 +40,7 @@ func InitWebServer() *gin.Engine {
 	wechatService := InitPhantomWechatService(loggerV1)
 	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, handler)
 	articleDao := article.NewGormArticleDao(gormDB)
-	articleRepository := article2.NewArticleRepository(articleDao)
+	articleRepository := article2.NewArticleRepository(articleDao, loggerV1)
 	articleService := service.NewArticleService(articleRepository)
 	articleHandler := web.NewArticleHandler(articleService, loggerV1)
 	engine := ioc.InitWebServer(v, userHandler, oAuth2WechatHandler, articleHandler)
@@ -48,9 +48,9 @@ func InitWebServer() *gin.Engine {
 }
 
 func InitArticleHandler(dao2 article.ArticleDao) *web.ArticleHandler {
-	articleRepository := article2.NewArticleRepository(dao2)
-	articleService := service.NewArticleService(articleRepository)
 	loggerV1 := InitLog()
+	articleRepository := article2.NewArticleRepository(dao2, loggerV1)
+	articleService := service.NewArticleService(articleRepository)
 	articleHandler := web.NewArticleHandler(articleService, loggerV1)
 	return articleHandler
 }
@@ -72,6 +72,17 @@ func InitJwtHdl() jwt.Handler {
 	return handler
 }
 
+func InitInteractiveService() service.InteractiveService {
+	gormDB := InitTestDB()
+	interactiveDAO := dao.NewGORMInteractiveDAO(gormDB)
+	cmdable := InitRedis()
+	interactiveCache := redis.NewRedisInteractiveCache(cmdable)
+	loggerV1 := InitLog()
+	interactiveRepository := repository.NewCachedInteractiveRepository(interactiveDAO, interactiveCache, loggerV1)
+	interactiveService := service.NewInteractiveService(interactiveRepository, loggerV1)
+	return interactiveService
+}
+
 // wire.go:
 
 var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog)
@@ -79,3 +90,5 @@ var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog)
 var userSvcProvider = wire.NewSet(dao.NewUserDAO, redis.NewUserCache, repository.NewUserRepository, service.NewUserService)
 
 var articleSvcProvider = wire.NewSet(article.NewGormArticleDao, article2.NewArticleRepository, service.NewArticleService)
+
+var interactiveSvcProvider = wire.NewSet(service.NewInteractiveService, repository.NewCachedInteractiveRepository, dao.NewGORMInteractiveDAO, redis.NewRedisInteractiveCache)

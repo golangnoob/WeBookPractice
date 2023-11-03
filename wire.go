@@ -3,11 +3,11 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 
+	"webooktrial/internal/events/article"
 	"webooktrial/internal/repository"
-	"webooktrial/internal/repository/article"
+	article3 "webooktrial/internal/repository/article"
 	"webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
 	article2 "webooktrial/internal/repository/dao/article"
@@ -17,22 +17,32 @@ import (
 	"webooktrial/ioc"
 )
 
-func InitWebServer() *gin.Engine {
+func InitWebServer() *App {
 	wire.Build(
 		// 最基础的第三方依赖
 		ioc.InitDB, ioc.InitRedis,
 		ioc.InitLogger,
+		ioc.InitKafka,
+		ioc.NewConsumers,
+		ioc.NewSyncProducer,
+
+		// consumer
+		article.NewInteractiveReadEventConsumer,
+		article.NewKafkaProducer,
 
 		// 初始化 DAO
 		dao.NewUserDAO,
 		article2.NewGormArticleDao,
+		dao.NewGORMInteractiveDAO,
 
 		redis.NewUserCache,
 		redis.NewCodeCache,
+		redis.NewRedisInteractiveCache,
 
 		repository.NewUserRepository,
 		repository.NewCodeRepository,
-		article.NewArticleRepository,
+		repository.NewCachedInteractiveRepository,
+		article3.NewArticleRepository,
 
 		service.NewUserService,
 		service.NewCodeService,
@@ -44,7 +54,7 @@ func InitWebServer() *gin.Engine {
 		web.NewOAuth2WechatHandler,
 		web.NewUserHandler,
 		web.NewArticleHandler,
-		ioc.NewWechatHandlerConfig,
+		//ioc.NewWechatHandlerConfig,
 		ijwt.NewRedisJWTHandler,
 
 		// 你中间件呢？
@@ -54,6 +64,8 @@ func InitWebServer() *gin.Engine {
 
 		ioc.InitWebServer,
 		ioc.InitMiddlewares,
+		// 组装我这个结构体的所有字段
+		wire.Struct(new(App), "*"),
 	)
-	return new(gin.Engine)
+	return new(App)
 }

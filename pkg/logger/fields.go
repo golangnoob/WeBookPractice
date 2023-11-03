@@ -14,6 +14,13 @@ func Error(err error) Field {
 	}
 }
 
+func Int32(key string, val int32) Field {
+	return Field{
+		Key:   key,
+		Value: val,
+	}
+}
+
 func Int64(key string, value int64) Field {
 	return Field{
 		Key:   key,
