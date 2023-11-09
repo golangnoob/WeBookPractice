@@ -1,20 +1,17 @@
 package ioc
 
 import (
-	"context"
 	"strings"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"github.com/spf13/viper"
 
 	"webooktrial/internal/web"
 	ijwt "webooktrial/internal/web/jwt"
 	"webooktrial/internal/web/middleware"
-	logger2 "webooktrial/pkg/ginx/middlewares/logger"
+	"webooktrial/pkg/ginx/middlewares/metric"
 	"webooktrial/pkg/ginx/middlewares/ratelimit"
 	"webooktrial/pkg/logger"
 	ratelimit2 "webooktrial/pkg/ratelimit"
@@ -31,17 +28,24 @@ func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler,
 }
 
 func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler, l logger.LoggerV1) []gin.HandlerFunc {
-	bd := logger2.NewBuilder(func(ctx context.Context, al *logger2.AccessLog) {
-		l.Debug("HTTP请求", logger.Field{Key: "al", Value: al})
-	}).AllowReqBody(true).AllowRespBody()
-	viper.OnConfigChange(func(in fsnotify.Event) {
-		ok := viper.GetBool("web.logreq")
-		bd.AllowReqBody(ok)
-	})
+	//bd := logger2.NewBuilder(func(ctx context.Context, al *logger2.AccessLog) {
+	//	l.Debug("HTTP请求", logger.Field{Key: "al", Value: al})
+	//}).AllowReqBody(true).AllowRespBody()
+	//viper.OnConfigChange(func(in fsnotify.Event) {
+	//	ok := viper.GetBool("web.logreq")
+	//	bd.AllowReqBody(ok)
+	//})
 	return []gin.HandlerFunc{
 		corsHdl(),
 		IgnorePathsHdl(jwtHdl),
-		bd.Build(),
+		//bd.Build(),
+		(&metric.MiddlewareBuilder{
+			Namespace:  "go_study",
+			Subsystem:  "webook",
+			Name:       "gin_http",
+			Help:       "统计 GIN 的 HTTP 接口",
+			InstanceID: "my-instance-1",
+		}).Build(),
 		ratelimit.NewBuilder(ratelimit2.NewRedisSlidingWindowLimiter(redisClient, time.Second, 1000)).Build(),
 	}
 }
@@ -74,5 +78,6 @@ func IgnorePathsHdl(jwtHdl ijwt.Handler) gin.HandlerFunc {
 		IgnorePaths("/oauth2/wechat/authurl").
 		IgnorePaths("/oauth2/wechat/callback").
 		IgnorePaths("/users/login_sms").
-		IgnorePaths("/users/refresh_token").Build()
+		IgnorePaths("/users/refresh_token").
+		IgnorePaths("/test/metric").Build()
 }

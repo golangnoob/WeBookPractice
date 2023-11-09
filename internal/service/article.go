@@ -31,6 +31,12 @@ type ArticleCoreService struct {
 	reader   article.ArticleReaderRepository
 	l        logger.LoggerV1
 	producer events.Producer
+	ch       chan readInfo
+}
+
+type readInfo struct {
+	uid int64
+	aid int64
 }
 
 func (a *ArticleCoreService) List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error) {
@@ -47,6 +53,7 @@ func (a *ArticleCoreService) GetPublishedById(ctx context.Context, id int64, uid
 	art, err := a.repo.GetPublishedById(ctx, id)
 	if err == nil {
 		go func() {
+			// 生产者也可以通过改批量来提高性能
 			er := a.producer.ProduceReadEvent(
 				// 即便你的消费者要用 art 的里面的数据，
 				// 让它去查询，你不要在 event 里面带
@@ -55,10 +62,20 @@ func (a *ArticleCoreService) GetPublishedById(ctx context.Context, id int64, uid
 					Aid: id,
 				})
 			if er != nil {
-				a.l.Error("发送读者阅读事件失败")
+				a.l.Error("发送读者阅读事件失败",
+					logger.Int64("Uid", uid),
+					logger.Int64("Aid", id))
 			}
 		}()
 	}
+	go func() {
+		// 改批量的做法
+		a.ch <- readInfo{
+			aid: id,
+			uid: uid,
+		}
+
+	}()
 	return art, err
 }
 
@@ -69,6 +86,7 @@ func NewArticleService(repo article.ArticleRepository,
 		repo:     repo,
 		l:        l,
 		producer: producer,
+		//ch: make(chan readInfo, 10),
 	}
 }
 
@@ -78,6 +96,45 @@ func NewArticleServiceV1(author article.ArticleAuthorRepository,
 		author: author,
 		reader: reader,
 		l:      l,
+	}
+}
+
+func NewArticleServiceV2(repo article.ArticleRepository,
+	l logger.LoggerV1,
+	producer events.Producer) ArticleService {
+	ch := make(chan readInfo, 10)
+	go func() {
+		for {
+			uids := make([]int64, 0, 10)
+			aids := make([]int64, 0, 10)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			for i := 0; i < 10; i++ {
+				select {
+				case info, ok := <-ch:
+					if !ok {
+						cancel()
+						return
+					}
+					uids = append(uids, info.uid)
+					aids = append(aids, info.aid)
+				case <-ctx.Done():
+					break
+				}
+			}
+			cancel()
+			ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+			producer.ProduceReadEventV1(ctx, events.ReadEventV1{
+				Uids: uids,
+				Aids: aids,
+			})
+			cancel()
+		}
+	}()
+	return &ArticleCoreService{
+		repo:     repo,
+		producer: producer,
+		l:        l,
+		ch:       ch,
 	}
 }
 

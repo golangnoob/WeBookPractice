@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/plugin/prometheus"
+
 	glogger "gorm.io/gorm/logger"
 
 	"webooktrial/internal/repository/dao"
@@ -58,6 +60,20 @@ func InitDB(l logger.LoggerV1) *gorm.DB {
 		// 我只会在初始化过程中 panic
 		// panic 相当于整个 goroutine 结束
 		// 一旦初始化过程出错，应用就不要启动了
+		panic(err)
+	}
+
+	err = db.Use(prometheus.New(prometheus.Config{
+		DBName:          "webook",
+		RefreshInterval: 15,
+		StartServer:     false,
+		MetricsCollector: []prometheus.MetricsCollector{
+			&prometheus.MySQL{
+				VariableNames: []string{"thread_running"},
+			},
+		},
+	}))
+	if err != nil {
 		panic(err)
 	}
 

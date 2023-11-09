@@ -19,12 +19,39 @@ type InteractiveRepository interface {
 	Get(ctx context.Context, biz string, bizId int64) (domain.Interactive, error)
 	Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error)
 	Collected(ctx context.Context, biz string, id int64, uid int64) (bool, error)
+	BatchIncrReadCnt(ctx context.Context, bizs []string, bizId []int64) error
+	AddRecord(ctx context.Context, aid int64, uid int64) error
 }
 
 type CachedReadCntRepository struct {
 	cache cache.InteractiveCache
 	dao   dao.InteractiveDAO
 	l     logger.LoggerV1
+}
+
+func (c *CachedReadCntRepository) BatchIncrReadCnt(ctx context.Context, bizs []string, bizId []int64) error {
+	// 可以用 map 合并吗？
+	// 看情况。如果一批次里面，biz 和 bizid 都相等的占很多，那么就map 合并，性能会更好
+	// 不然你合并了没有效果
+
+	// 为什么快？
+	// A：十条消息调用十次 IncrReadCnt，
+	// B 就是批量
+	// 事务本身的开销，A 是 B 的十倍
+	// 刷新 redolog, undolog, binlog 到磁盘，A 是十次，B 是一次
+	err := c.dao.BatchIncrReadCnt(ctx, bizs, bizId)
+	if err != nil {
+		return err
+	}
+	// 你也要批量的去修改 redis，所以就要去改 lua 脚本
+	// c.cache.IncrReadCntIfPresent()
+	// TODO, 等我写新的 lua 脚本/或者用 pipeline
+	return nil
+}
+
+func (c *CachedReadCntRepository) AddRecord(ctx context.Context, aid int64, uid int64) error {
+	//TODO implement me
+	panic("implement me")
 }
 
 func (c *CachedReadCntRepository) Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error) {

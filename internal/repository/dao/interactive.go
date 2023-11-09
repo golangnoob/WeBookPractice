@@ -19,10 +19,28 @@ type InteractiveDAO interface {
 	Get(ctx context.Context, biz string, bizId int64) (Interactive, error)
 	InsertCollectionBiz(ctx context.Context, cb UserCollectionBiz) error
 	GetCollectionInfo(ctx context.Context, biz string, bizId, uid int64) (UserCollectionBiz, error)
+	BatchIncrReadCnt(ctx context.Context, bizs []string, aids []int64) error
 }
 
 type GORMInteractiveDAO struct {
 	db *gorm.DB
+}
+
+// BatchIncrReadCnt bizs 和 aids 的长度必须相等
+func (G *GORMInteractiveDAO) BatchIncrReadCnt(ctx context.Context, bizs []string, aids []int64) error {
+	return G.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 在这里要不要检测 bizs 和 ids 的长度是否相等？
+		// 个人觉得不需要，在上层调用时就应该确保两者必定相等
+		txDao := NewGORMInteractiveDAO(tx)
+		for i := range bizs {
+			err := txDao.IncrReadCnt(ctx, bizs[i], aids[i])
+			if err != nil {
+				// 直接记个日志
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (G *GORMInteractiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int64) error {
