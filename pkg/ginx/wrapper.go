@@ -2,14 +2,25 @@ package ginx
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"webooktrial/pkg/logger"
 )
 
 var L logger.LoggerV1
+
+var vector *prometheus.CounterVec
+
+func InitCounter(opt prometheus.CounterOpts) {
+	vector = prometheus.NewCounterVec(opt,
+		[]string{"code"})
+	prometheus.MustRegister(vector)
+	// 可以考虑使用 code, method, 命中路由，HTTP 状态码
+}
 
 func WrapToken[UC jwt.Claims](fn func(ctx *gin.Context, uc UC) (Result, error)) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -37,6 +48,8 @@ func WrapToken[UC jwt.Claims](fn func(ctx *gin.Context, uc UC) (Result, error)) 
 				logger.Error(err))
 		}
 		ctx.JSON(http.StatusOK, res)
+		vector.WithLabelValues(
+			strconv.Itoa(res.Code)).Inc()
 		// 再执行一些东西
 	}
 }

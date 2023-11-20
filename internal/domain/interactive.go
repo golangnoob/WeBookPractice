@@ -1,8 +1,8 @@
 package domain
 
 type Interactive struct {
-	//Biz string
-	// BizId int64
+	Biz   string
+	BizId int64 `gorm:"comment:article_id"`
 
 	ReadCnt    int64 `json:"read_cnt"`
 	LikeCnt    int64 `json:"like_cnt"`

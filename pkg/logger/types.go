@@ -35,7 +35,7 @@ func LoggerV1Example() {
 }
 
 type LoggerV2 interface {
-	// args 必须是偶数，并且按照 key-value, key-value 来组织
+	// Debug args 必须是偶数，并且按照 key-value, key-value 来组织
 	Debug(msg string, args ...any)
 	Info(msg string, args ...any)
 	Warn(msg string, args ...any)

@@ -20,6 +20,8 @@ type ArticleService interface {
 	Withdraw(ctx *gin.Context, art domain.Article) error
 	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
 	GetById(ctx context.Context, id int64) (domain.Article, error)
+	// ListPub 只会取 start 七天内的数据
+	ListPub(ctx context.Context, start time.Time, offset, limit int) ([]domain.Article, error)
 	GetPublishedById(ctx context.Context, id int64, uid int64) (domain.Article, error)
 }
 
@@ -32,6 +34,11 @@ type ArticleCoreService struct {
 	l        logger.LoggerV1
 	producer events.Producer
 	ch       chan readInfo
+}
+
+func (a *ArticleCoreService) ListPub(ctx context.Context, start time.Time, offset, limit int) ([]domain.Article, error) {
+	//TODO implement me
+	panic("implement me")
 }
 
 type readInfo struct {

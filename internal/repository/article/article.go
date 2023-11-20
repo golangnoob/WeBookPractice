@@ -16,7 +16,7 @@ import (
 	dao "webooktrial/internal/repository/dao/article"
 )
 
-//go:generate mockgen -source=./article.go -package=repomocks -destination=mocks/article.mock.go ArticleRepository
+//go:generate mockgen -source=./article.go -package=artrepomocks -destination=mocks/article.mock.go ArticleRepository
 
 type ArticleRepository interface {
 	Create(ctx context.Context, art domain.Article) (int64, error)
@@ -31,10 +31,11 @@ type ArticleRepository interface {
 	//FindById(ctx context.Context, id int64) domain.Article
 }
 
-func NewArticleRepository(dao dao.ArticleDao, l logger.LoggerV1) ArticleRepository {
+func NewArticleRepository(dao dao.ArticleDao, l logger.LoggerV1, cache cache.ArticleCache) ArticleRepository {
 	return &CachedArticleRepository{
-		dao: dao,
-		l:   l,
+		dao:   dao,
+		l:     l,
+		cache: cache,
 	}
 }
 

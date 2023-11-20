@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gin-gonic/gin"
@@ -13,11 +15,14 @@ import (
 	"github.com/spf13/viper"
 	_ "github.com/spf13/viper/remote"
 	"go.uber.org/zap"
+
+	"webooktrial/ioc"
 )
 
 func main() {
 	initViperV1()
 	initLogger()
+	closeFunc := ioc.InitOTEL()
 	initPrometheus()
 	//keys := viper.AllKeys()
 	//println(keys)
@@ -39,6 +44,10 @@ func main() {
 	if err := server.Run(":8080"); err != nil {
 		panic(err)
 	}
+	// 一分钟内你要关完，要退出
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	closeFunc(ctx)
 }
 
 func initPrometheus() {

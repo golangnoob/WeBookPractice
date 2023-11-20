@@ -6,11 +6,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 
 	"webooktrial/internal/web"
 	ijwt "webooktrial/internal/web/jwt"
 	"webooktrial/internal/web/middleware"
+	"webooktrial/pkg/ginx"
 	"webooktrial/pkg/ginx/middlewares/metric"
 	"webooktrial/pkg/ginx/middlewares/ratelimit"
 	"webooktrial/pkg/logger"
@@ -35,6 +38,12 @@ func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler, l logger.Lo
 	//	ok := viper.GetBool("web.logreq")
 	//	bd.AllowReqBody(ok)
 	//})
+	ginx.InitCounter(prometheus.CounterOpts{
+		Namespace: "go_study",
+		Subsystem: "webook",
+		Name:      "http_biz_code",
+		Help:      "HTTP 的业务错误码",
+	})
 	return []gin.HandlerFunc{
 		corsHdl(),
 		IgnorePathsHdl(jwtHdl),
@@ -46,6 +55,7 @@ func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler, l logger.Lo
 			Help:       "统计 GIN 的 HTTP 接口",
 			InstanceID: "my-instance-1",
 		}).Build(),
+		otelgin.Middleware("webook"),
 		ratelimit.NewBuilder(ratelimit2.NewRedisSlidingWindowLimiter(redisClient, time.Second, 1000)).Build(),
 	}
 }

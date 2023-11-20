@@ -1,6 +1,8 @@
 package logger
 
-import "sync"
+import (
+	"sync"
+)
 
 var gl LoggerV1
 var lMutex sync.RWMutex

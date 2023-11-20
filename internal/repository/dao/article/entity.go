@@ -26,3 +26,46 @@ type PublishedArticleV1 struct {
 	Ctime    int64  `bson:"ctime,omitempty"`
 	Utime    int64  `bson:"utime,omitempty"`
 }
+
+//func (u *Article) BeforeCreate(tx *gorm.DB) (err error) {
+//	startTime := time.Now()
+//	tx.Set("start_time", startTime)
+//	slog.Default().Info("这是 BeforeCreate 钩子函数")
+//	return nil
+//}
+
+//func (u *Article) AfterCreate(tx *gorm.DB) (err error) {
+//	// 我要计算执行时间，我怎么拿到 before 里面的 startTime?
+//	val, _ := tx.Get("start_time")
+//	startTime, ok := val.(time.Time)
+//	if !ok {
+//		return nil
+//	}
+//	// 执行时间就出来了
+//	duration := time.Since(startTime)
+//	slog.Default().Info("这是 AfterCreate 钩子函数")
+//	return nil
+//}
+
+//type model struct {
+//}
+//
+//func (u model) BeforeSave(tx *gorm.DB) (err error) {
+//	startTime := time.Now()
+//	tx.Set("start_time", startTime)
+//	slog.Default().Info("这是 BeforeCreate 钩子函数")
+//	return nil
+//}
+
+//func (u model) AfterSave(tx *gorm.DB) (err error) {
+//	// 我要计算执行时间，我怎么拿到 before 里面的 startTime?
+//	val, _ := tx.Get("start_time")
+//	startTime, ok := val.(time.Time)
+//	if !ok {
+//		return nil
+//	}
+//	// 执行时间就出来了
+//	duration := time.Since(startTime)
+//	slog.Default().Info("这是 AfterCreate 钩子函数")
+//	return nil
+//}

@@ -12,5 +12,6 @@ func InitSMSService(cmd redis.Cmdable) sms.Service {
 	//svc := ratelimit.NewRatelimitSMSService(memory.NewService(),
 	//	limiter.NewRedisSlidingWindowLimiter(cmd, time.Second, 100))
 	//return retryable.NewService(svc, 3)
+	//return metrics.NewPrometheusDecorator(memory.NewService())
 	return memory.NewService()
 }

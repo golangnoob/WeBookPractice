@@ -9,14 +9,15 @@ webooktrial
 target/
 sarama/
 scripts/
-
+/opentelemetry
+/cronjob
 
 **/.idea
 **/*.iws
 **/*.iml
 **/*.ipr
 **/modules.xml
-
+go.work
 
 **/mvnw
 **/mvnw.cmd

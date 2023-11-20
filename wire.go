@@ -38,6 +38,7 @@ func InitWebServer() *App {
 		redis.NewUserCache,
 		redis.NewCodeCache,
 		redis.NewRedisInteractiveCache,
+		redis.NewRedisArticleCache,
 
 		repository.NewUserRepository,
 		repository.NewCodeRepository,

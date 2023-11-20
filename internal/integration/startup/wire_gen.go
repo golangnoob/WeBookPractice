@@ -9,6 +9,7 @@ package startup
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
+	article3 "webooktrial/internal/events/article"
 	"webooktrial/internal/repository"
 	article2 "webooktrial/internal/repository/article"
 	"webooktrial/internal/repository/cache/redis"
@@ -40,8 +41,12 @@ func InitWebServer() *gin.Engine {
 	wechatService := InitPhantomWechatService(loggerV1)
 	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService, handler)
 	articleDao := article.NewGormArticleDao(gormDB)
-	articleRepository := article2.NewArticleRepository(articleDao, loggerV1)
-	articleService := service.NewArticleService(articleRepository)
+	articleCache := redis.NewRedisArticleCache(cmdable)
+	articleRepository := article2.NewArticleRepository(articleDao, loggerV1, articleCache)
+	client := InitKafka()
+	syncProducer := ioc.NewSyncProducer(client)
+	producer := article3.NewKafkaProducer(syncProducer)
+	articleService := service.NewArticleService(articleRepository, loggerV1, producer)
 	articleHandler := web.NewArticleHandler(articleService, loggerV1)
 	engine := ioc.InitWebServer(v, userHandler, oAuth2WechatHandler, articleHandler)
 	return engine
@@ -49,8 +54,13 @@ func InitWebServer() *gin.Engine {
 
 func InitArticleHandler(dao2 article.ArticleDao) *web.ArticleHandler {
 	loggerV1 := InitLog()
-	articleRepository := article2.NewArticleRepository(dao2, loggerV1)
-	articleService := service.NewArticleService(articleRepository)
+	cmdable := InitRedis()
+	articleCache := redis.NewRedisArticleCache(cmdable)
+	articleRepository := article2.NewArticleRepository(dao2, loggerV1, articleCache)
+	client := InitKafka()
+	syncProducer := ioc.NewSyncProducer(client)
+	producer := article3.NewKafkaProducer(syncProducer)
+	articleService := service.NewArticleService(articleRepository, loggerV1, producer)
 	articleHandler := web.NewArticleHandler(articleService, loggerV1)
 	return articleHandler
 }
@@ -85,10 +95,10 @@ func InitInteractiveService() service.InteractiveService {
 
 // wire.go:
 
-var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog)
+var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog, InitKafka)
 
 var userSvcProvider = wire.NewSet(dao.NewUserDAO, redis.NewUserCache, repository.NewUserRepository, service.NewUserService)
 
-var articleSvcProvider = wire.NewSet(article.NewGormArticleDao, article2.NewArticleRepository, service.NewArticleService)
+var articleSvcProvider = wire.NewSet(article.NewGormArticleDao, article2.NewArticleRepository, service.NewArticleService, redis.NewRedisArticleCache)
 
 var interactiveSvcProvider = wire.NewSet(service.NewInteractiveService, repository.NewCachedInteractiveRepository, dao.NewGORMInteractiveDAO, redis.NewRedisInteractiveCache)

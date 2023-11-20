@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
 
+	article3 "webooktrial/internal/events/article"
 	"webooktrial/internal/repository"
 	article2 "webooktrial/internal/repository/article"
 	"webooktrial/internal/repository/cache/redis"
@@ -17,7 +18,7 @@ import (
 	"webooktrial/ioc"
 )
 
-var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog)
+var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog, InitKafka)
 var userSvcProvider = wire.NewSet(
 	dao.NewUserDAO,
 	redis.NewUserCache,
@@ -27,7 +28,9 @@ var userSvcProvider = wire.NewSet(
 var articleSvcProvider = wire.NewSet(
 	article.NewGormArticleDao,
 	article2.NewArticleRepository,
-	service.NewArticleService)
+	service.NewArticleService,
+	redis.NewRedisArticleCache,
+)
 
 var interactiveSvcProvider = wire.NewSet(
 	service.NewInteractiveService,
@@ -48,7 +51,8 @@ func InitWebServer() *gin.Engine {
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
 		ioc.InitSMSService,
-
+		ioc.NewSyncProducer,
+		article3.NewKafkaProducer,
 		// 指定啥也不干的 wechat service
 		InitPhantomWechatService,
 		service.NewCodeService,
@@ -73,11 +77,13 @@ func InitWebServer() *gin.Engine {
 func InitArticleHandler(dao article.ArticleDao) *web.ArticleHandler {
 	wire.Build(thirdProvider,
 		//userSvcProvider,
-		//cache.NewRedisArticleCache,
+		redis.NewRedisArticleCache,
 		//wire.InterfaceValue(new(article.ArticleDAO), dao),
 		//article.NewGormArticleDao,
 		article2.NewArticleRepository,
 		service.NewArticleService,
+		ioc.NewSyncProducer,
+		article3.NewKafkaProducer,
 		web.NewArticleHandler,
 	)
 	return &web.ArticleHandler{}

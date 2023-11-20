@@ -6,10 +6,14 @@ import (
 	"errors"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"webooktrial/internal/domain"
-	"webooktrial/internal/repository/cache/redis"
+	cacheRedis "webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
 )
+
+var ErrKeyNotExist = redis.Nil
 
 var (
 	ErrUserDuplicate = dao.ErrUserDuplicate
@@ -28,10 +32,10 @@ type UserRepository interface {
 
 type CachedUserRepository struct {
 	dao   dao.UserDAO
-	cache redis.UserCache
+	cache cacheRedis.UserCache
 }
 
-func NewUserRepository(dao dao.UserDAO, c redis.UserCache) UserRepository {
+func NewUserRepository(dao dao.UserDAO, c cacheRedis.UserCache) UserRepository {
 	return &CachedUserRepository{
 		dao:   dao,
 		cache: c,

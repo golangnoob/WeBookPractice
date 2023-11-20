@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	"webooktrial/internal/domain"
@@ -80,6 +81,8 @@ func (u *UserHandler) LogoutJWT(ctx *gin.Context) {
 	})
 }
 
+// RefreshToken 可以同时刷新长短 token，用 redis 来记录是否有效，即 refresh_token 是一次性的
+// 参考登录校验部分，比较 User-Agent 来增强安全性
 func (u *UserHandler) RefreshToken(ctx *gin.Context) {
 	// 只有这个接口，拿出来的才是 refresh_token，其他地方都是 access_token
 	refreshToken := u.ExtractToken(ctx)
@@ -262,12 +265,14 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 	}
 
 	// 调用一下 svc 的方法
-	err = u.userSvc.SignUp(ctx, domain.User{
+	err = u.userSvc.SignUp(ctx.Request.Context(), domain.User{
 		Email:    req.Email,
 		Password: req.Password,
 	})
 
 	if errors.Is(err, service.ErrUserDuplicateEmail) {
+		span := trace.SpanFromContext(ctx.Request.Context())
+		span.AddEvent("邮箱冲突")
 		ctx.String(http.StatusOK, "邮箱冲突")
 		return
 	}
