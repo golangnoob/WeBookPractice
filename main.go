@@ -36,7 +36,7 @@ func main() {
 			panic(err)
 		}
 	}
-
+	app.cron.Start()
 	server := app.web
 	server.GET("/hello", func(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "你好，你来了")
@@ -48,6 +48,13 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	closeFunc(ctx)
+
+	ctx = app.cron.Stop()
+	tm := time.NewTimer(time.Minute * 10)
+	select {
+	case <-tm.C:
+	case <-ctx.Done():
+	}
 }
 
 func initPrometheus() {

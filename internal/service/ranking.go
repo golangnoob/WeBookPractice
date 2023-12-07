@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"log"
 	"math"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/ecodeclub/ekit/slice"
 
 	"webooktrial/internal/domain"
+	"webooktrial/internal/repository"
 )
 
 type RankingService interface {
@@ -22,20 +22,22 @@ type RankingService interface {
 type BatchRankingService struct {
 	artSvc    ArticleService
 	intrSvc   InteractiveService
+	repo      repository.RankingRepository
 	batchSize int
 	n         int
 	// scoreFunc 不能返回负数
 	scoreFunc func(t time.Time, likeCnt int64) float64
 }
 
-func NewBatchRankingService(artSvc ArticleService, intrSvc InteractiveService) *BatchRankingService {
+func NewBatchRankingService(artSvc ArticleService, intrSvc InteractiveService) RankingService {
 	return &BatchRankingService{
 		artSvc:    artSvc,
 		intrSvc:   intrSvc,
 		batchSize: 100,
 		n:         100,
 		scoreFunc: func(t time.Time, likeCnt int64) float64 {
-			return float64(likeCnt-1) / math.Pow(float64(likeCnt+2), 1.5)
+			sec := time.Since(t).Seconds()
+			return float64(likeCnt-1) / math.Pow(sec, 1.5)
 		},
 	}
 }
@@ -46,8 +48,8 @@ func (b *BatchRankingService) TopN(ctx context.Context) error {
 		return err
 	}
 	// 在这里，存起来
-	log.Println(arts)
-	return nil
+
+	return b.repo.ReplaceTopN(ctx, arts)
 }
 
 func (b *BatchRankingService) topN(ctx context.Context) ([]domain.Article, error) {
@@ -99,14 +101,15 @@ func (b *BatchRankingService) topN(ctx context.Context) ([]domain.Article, error
 			if errors.Is(err, queue.ErrOutOfCapacity) {
 				val, _ := topN.Dequeue()
 				if val.score < score {
-					err = topN.Enqueue(Score{art: art, score: score})
+					_ = topN.Enqueue(Score{art: art, score: score})
 				} else {
 					_ = topN.Enqueue(val)
 				}
 			}
 		}
 		// 判断是否还有下一批需要处理
-		if len(arts) < b.batchSize {
+		if len(arts) < b.batchSize || now.Sub(arts[len(arts)-1].Utime).Hours() > 7*24 {
+			// 当前批次为取满或者已经取到一周之前的数据，说明可以中断计算热榜
 			break
 		}
 		// 更新 offset

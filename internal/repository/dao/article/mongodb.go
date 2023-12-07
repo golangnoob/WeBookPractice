@@ -24,6 +24,11 @@ type MongoDBDao struct {
 	idGen IDGenerator
 }
 
+func (m *MongoDBDao) ListPub(ctx context.Context, start time.Time, offset int, limit int) ([]Article, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 type IDGenerator func() int64
 
 func (m *MongoDBDao) Insert(ctx context.Context, art Article) (int64, error) {

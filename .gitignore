@@ -11,6 +11,7 @@ sarama/
 scripts/
 /opentelemetry
 /cronjob
+/grpc
 
 **/.idea
 **/*.iws

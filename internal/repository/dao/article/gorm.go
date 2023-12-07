@@ -19,6 +19,14 @@ type GormArticleDao struct {
 	db *gorm.DB
 }
 
+func (g *GormArticleDao) ListPub(ctx context.Context, start time.Time, offset int, limit int) ([]Article, error) {
+	var res []Article
+	err := g.db.WithContext(ctx).
+		Where("utime < ?", start.UnixMilli()).
+		Order("utime DESC").Offset(offset).Limit(limit).Error
+	return res, err
+}
+
 func (g *GormArticleDao) GetByAuthor(ctx context.Context, author int64, offset, limit int) ([]Article, error) {
 	// SELECT * FROM XXX WHERE XX order by aaa
 	// 在设计 order by 语句的时候，要注意让 order by 中的数据命中索引
