@@ -1,4 +1,4 @@
-package article
+package events
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/IBM/sarama"
 
-	"webooktrial/internal/repository"
+	"webooktrial/interactive/repository"
 	"webooktrial/pkg/logger"
 	"webooktrial/pkg/saramax"
 )

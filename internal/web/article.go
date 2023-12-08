@@ -10,6 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 
+	domain2 "webooktrial/interactive/domain"
+	service2 "webooktrial/interactive/service"
 	"webooktrial/internal/domain"
 	"webooktrial/internal/service"
 	ijwt "webooktrial/internal/web/jwt"
@@ -22,7 +24,7 @@ var _ handler = (*ArticleHandler)(nil)
 type ArticleHandler struct {
 	svc     service.ArticleService
 	l       logger.LoggerV1
-	intrSvc service.InteractiveService
+	intrSvc service2.InteractiveService
 	biz     string
 }
 
@@ -293,7 +295,7 @@ func (h *ArticleHandler) PubDetail(ctx *gin.Context) {
 		return err
 	})
 
-	var intr domain.Interactive
+	var intr domain2.Interactive
 	eg.Go(func() error {
 		// 要在这里获得这篇文章的计数
 		// 这个地方可以容忍错误

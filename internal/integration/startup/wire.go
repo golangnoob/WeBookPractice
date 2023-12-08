@@ -18,7 +18,8 @@ import (
 	"webooktrial/ioc"
 )
 
-var thirdProvider = wire.NewSet(InitRedis, InitTestDB, InitLog, InitKafka)
+var thirdProvider = wire.NewSet(InitRedis,
+	NewSyncProducer, InitTestDB, InitLog, InitKafka)
 var userSvcProvider = wire.NewSet(
 	dao.NewUserDAO,
 	redis.NewUserCache,
@@ -30,13 +31,6 @@ var articleSvcProvider = wire.NewSet(
 	article2.NewArticleRepository,
 	service.NewArticleService,
 	redis.NewRedisArticleCache,
-)
-
-var interactiveSvcProvider = wire.NewSet(
-	service.NewInteractiveService,
-	repository.NewCachedInteractiveRepository,
-	dao.NewGORMInteractiveDAO,
-	redis.NewRedisInteractiveCache,
 )
 
 func InitWebServer() *gin.Engine {
@@ -51,7 +45,6 @@ func InitWebServer() *gin.Engine {
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
 		ioc.InitSMSService,
-		ioc.NewSyncProducer,
 		article3.NewKafkaProducer,
 		// 指定啥也不干的 wechat service
 		InitPhantomWechatService,
@@ -82,7 +75,6 @@ func InitArticleHandler(dao article.ArticleDao) *web.ArticleHandler {
 		//article.NewGormArticleDao,
 		article2.NewArticleRepository,
 		service.NewArticleService,
-		ioc.NewSyncProducer,
 		article3.NewKafkaProducer,
 		web.NewArticleHandler,
 	)
@@ -97,9 +89,4 @@ func InitUserSvc() service.UserService {
 func InitJwtHdl() ijwt.Handler {
 	wire.Build(thirdProvider, ijwt.NewRedisJWTHandler)
 	return ijwt.NewRedisJWTHandler(nil)
-}
-
-func InitInteractiveService() service.InteractiveService {
-	wire.Build(thirdProvider, interactiveSvcProvider)
-	return service.NewInteractiveService(nil, nil)
 }

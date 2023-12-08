@@ -9,7 +9,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"webooktrial/internal/domain"
+	"webooktrial/interactive/domain"
 )
 
 var (
@@ -90,8 +90,9 @@ func (r *RedisInteractiveCache) DecrLikeCntIfPresent(ctx context.Context, biz st
 }
 
 func (r *RedisInteractiveCache) IncrCollectCntIfPresent(ctx context.Context, biz string, bizId int64) error {
-	return r.client.Eval(ctx, luaIncrCnt, []string{r.key(biz, bizId),
-		fieldCollectCnt}, 1).Err()
+	return r.client.Eval(ctx, luaIncrCnt,
+		[]string{r.key(biz, bizId)},
+		fieldCollectCnt, 1).Err()
 }
 
 func (r *RedisInteractiveCache) Get(ctx context.Context, biz string, bizId int64) (domain.Interactive, error) {
@@ -118,6 +119,7 @@ func (r *RedisInteractiveCache) Get(ctx context.Context, biz string, bizId int64
 
 	return domain.Interactive{
 		// 懒惰的写法
+		BizId:      bizId,
 		CollectCnt: collectCnt,
 		LikeCnt:    likeCnt,
 		ReadCnt:    readCnt,
@@ -135,10 +137,6 @@ func (r *RedisInteractiveCache) Set(ctx context.Context, biz string, bizId int64
 	}
 	return r.client.Expire(ctx, key, time.Minute*15).Err()
 }
-
-//func (r *RedisInteractiveCache) keyPersonal(biz string, bizId int64) string {
-//	return fmt.Sprintf("interactive:personal:%s:%d:%d", biz, bizId, uid)
-//}
 
 func (r *RedisInteractiveCache) key(biz string, bizId int64) string {
 	return fmt.Sprintf("interactive:%s:%d", biz, bizId)

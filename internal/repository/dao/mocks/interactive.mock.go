@@ -5,11 +5,12 @@
 package daomocks
 
 import (
-	context "context"
-	reflect "reflect"
-	dao "webooktrial/internal/repository/dao"
+	"context"
+	"reflect"
 
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
+
+	"webooktrial/interactive/repository/dao"
 )
 
 // MockInteractiveDAO is a mock of InteractiveDAO interface.

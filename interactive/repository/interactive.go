@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"errors"
 
-	"webooktrial/internal/domain"
-	cache "webooktrial/internal/repository/cache/redis"
-	"webooktrial/internal/repository/dao"
+	"github.com/ecodeclub/ekit/slice"
+
+	"webooktrial/interactive/domain"
+	cache "webooktrial/interactive/repository/cache/redis"
+	"webooktrial/interactive/repository/dao"
 	"webooktrial/pkg/logger"
 )
 
@@ -19,14 +22,26 @@ type InteractiveRepository interface {
 	Get(ctx context.Context, biz string, bizId int64) (domain.Interactive, error)
 	Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error)
 	Collected(ctx context.Context, biz string, id int64, uid int64) (bool, error)
+	// BatchIncrReadCnt 这里调用者要保证 bizs 和 bizIds 长度一样
 	BatchIncrReadCnt(ctx context.Context, bizs []string, bizId []int64) error
-	AddRecord(ctx context.Context, aid int64, uid int64) error
+	GetByIds(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error)
 }
 
 type CachedReadCntRepository struct {
 	cache cache.InteractiveCache
 	dao   dao.InteractiveDAO
 	l     logger.LoggerV1
+}
+
+func (c *CachedReadCntRepository) GetByIds(ctx context.Context, biz string, ids []int64) ([]domain.Interactive, error) {
+	vals, err := c.dao.GetByIds(ctx, biz, ids)
+	if err != nil {
+		return nil, err
+	}
+	return slice.Map[dao.Interactive, domain.Interactive](vals,
+		func(idx int, src dao.Interactive) domain.Interactive {
+			return c.toDomain(src)
+		}), nil
 }
 
 func (c *CachedReadCntRepository) BatchIncrReadCnt(ctx context.Context, bizs []string, bizId []int64) error {
@@ -49,17 +64,12 @@ func (c *CachedReadCntRepository) BatchIncrReadCnt(ctx context.Context, bizs []s
 	return nil
 }
 
-func (c *CachedReadCntRepository) AddRecord(ctx context.Context, aid int64, uid int64) error {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (c *CachedReadCntRepository) Liked(ctx context.Context, biz string, id int64, uid int64) (bool, error) {
 	_, err := c.dao.GetLikeInfo(ctx, biz, id, uid)
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return true, nil
-	case dao.ErrRecordNotFound:
+	case errors.Is(err, dao.ErrDataNotFound):
 		// 你要吞掉
 		return false, nil
 	default:
@@ -69,10 +79,10 @@ func (c *CachedReadCntRepository) Liked(ctx context.Context, biz string, id int6
 
 func (c *CachedReadCntRepository) Collected(ctx context.Context, biz string, id int64, uid int64) (bool, error) {
 	_, err := c.dao.GetCollectionInfo(ctx, biz, id, uid)
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return true, nil
-	case dao.ErrRecordNotFound:
+	case errors.Is(err, dao.ErrDataNotFound):
 		// 你要吞掉
 		return false, nil
 	default:
@@ -124,8 +134,8 @@ func (c *CachedReadCntRepository) AddCollectionItem(ctx context.Context,
 	// 用户会频繁访问他的收藏夹，那么你就应该缓存，不然你就不需要
 	// 一个东西要不要缓存，你就看用户会不会频繁访问（反复访问）
 	err := c.dao.InsertCollectionBiz(ctx, dao.UserCollectionBiz{
-		Cid:   cid,
 		Biz:   biz,
+		Cid:   cid,
 		BizId: bizId,
 		Uid:   uid,
 	})
@@ -139,50 +149,35 @@ func (c *CachedReadCntRepository) Get(ctx context.Context,
 	biz string, bizId int64) (domain.Interactive, error) {
 	// 要从缓存拿出来阅读数，点赞数和收藏数
 	intr, err := c.cache.Get(ctx, biz, bizId)
-	if err != nil {
-		return intr, err
+	if err == nil {
+		// 缓存只缓存了具体的数字，但是没有缓存自身有没有点赞的信息
+		// 因为一个人反复刷，重复刷一篇文章是小概率的事情
+		// 也就是说，你缓存了某个用户是否点赞的数据，命中率会很低
+		return intr, nil
 	}
-	// 但不是所有的结构体都是可比较的
-	//if intr == (domain.Interactive{}) {
-	//
-	//}
-	// 在这里查询数据库
 
 	daoIntr, err := c.dao.Get(ctx, biz, bizId)
-	if err != nil {
-		return domain.Interactive{}, err
-	}
-	intr = c.toDomain(daoIntr)
-	go func() {
-		er := c.cache.Set(ctx, biz, bizId, intr)
-		// 记录日志
-		if er != nil {
+	if err == nil {
+		intr = c.toDomain(daoIntr)
+		if er := c.cache.Set(ctx, biz, bizId, intr); er != nil {
 			c.l.Error("回写缓存失败",
 				logger.String("biz", biz),
 				logger.Int64("bizId", bizId),
+				logger.Error(er),
 			)
 		}
-	}()
-	return intr, nil
+		return intr, nil
+	}
+	return domain.Interactive{}, nil
 }
 
 func (c *CachedReadCntRepository) toDomain(intr dao.Interactive) domain.Interactive {
 	return domain.Interactive{
+		BizId:      intr.BizId,
 		LikeCnt:    intr.LikeCnt,
 		CollectCnt: intr.CollectCnt,
 		ReadCnt:    intr.ReadCnt,
 	}
-}
-
-func (c *CachedReadCntRepository) GetCollection() (domain.Collection, error) {
-	items, err := c.dao.(*dao.GORMInteractiveDAO).GetItems()
-	if err != nil {
-		return domain.Collection{}, err
-	}
-	// 用 items 来构造一个 Collection
-	return domain.Collection{
-		Name: items[0].Cname,
-	}, nil
 }
 
 func NewCachedInteractiveRepository(dao dao.InteractiveDAO,
@@ -192,17 +187,6 @@ func NewCachedInteractiveRepository(dao dao.InteractiveDAO,
 		cache: cache,
 		l:     l,
 	}
-}
-
-// UpdateCnt 这不是好的实践
-func (c *CachedReadCntRepository) UpdateCnt(intr *dao.Interactive) {
-	intr.LikeCnt = 30
-}
-
-// UpdateCntV1 凑合的实践
-func (c *CachedReadCntRepository) UpdateCntV1(intr dao.Interactive) dao.Interactive {
-	intr.LikeCnt = 30
-	return intr
 }
 
 // 正常来说，参数必然不用指针：方法不要修改参数，通过返回值来修改参数

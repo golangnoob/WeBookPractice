@@ -9,7 +9,7 @@ import (
 )
 
 //go:generate mockgen -source=./interactive.go -package=daomocks -destination=mocks/interactive.mock.go InteractiveDAO
-var ErrRecordNotFound = gorm.ErrRecordNotFound
+var ErrDataNotFound = gorm.ErrRecordNotFound
 
 type InteractiveDAO interface {
 	IncrReadCnt(ctx context.Context, biz string, bizId int64) error
@@ -20,22 +20,26 @@ type InteractiveDAO interface {
 	InsertCollectionBiz(ctx context.Context, cb UserCollectionBiz) error
 	GetCollectionInfo(ctx context.Context, biz string, bizId, uid int64) (UserCollectionBiz, error)
 	BatchIncrReadCnt(ctx context.Context, bizs []string, aids []int64) error
+	GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error)
 }
 
 type GORMInteractiveDAO struct {
 	db *gorm.DB
 }
 
+func (G *GORMInteractiveDAO) GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error) {
+	var res []Interactive
+	err := G.db.WithContext(ctx).Where("biz = ? AND id IN ?", biz, ids).Find(&res).Error
+	return res, err
+}
+
 // BatchIncrReadCnt bizs 和 aids 的长度必须相等
 func (G *GORMInteractiveDAO) BatchIncrReadCnt(ctx context.Context, bizs []string, aids []int64) error {
 	return G.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 在这里要不要检测 bizs 和 ids 的长度是否相等？
-		// 个人觉得不需要，在上层调用时就应该确保两者必定相等
-		txDao := NewGORMInteractiveDAO(tx)
-		for i := range bizs {
-			err := txDao.IncrReadCnt(ctx, bizs[i], aids[i])
+		// 让调用者保证两者是相等的
+		for i := 0; i < len(bizs); i++ {
+			err := G.incrReadCnt(tx, bizs[i], aids[i])
 			if err != nil {
-				// 直接记个日志
 				return err
 			}
 		}
@@ -43,41 +47,24 @@ func (G *GORMInteractiveDAO) BatchIncrReadCnt(ctx context.Context, bizs []string
 	})
 }
 
+// IncrReadCnt 是一个插入或者更新语义
 func (G *GORMInteractiveDAO) IncrReadCnt(ctx context.Context, biz string, bizId int64) error {
-	// DAO 要怎么实现？表结构该怎么设计？
-	//var intr Interactive
-	//err := dao.db.
-	//	Where("biz_id =? AND biz = ?", bizId, biz).
-	//	First(&intr).Error
-	// 两个 goroutine 过来，你查询到 read_cnt 都是 10
-	//if err != nil {
-	//	return err
-	//}
-	// 都变成了 11
-	//cnt := intr.ReadCnt + 1
-	//// 最终变成 11
-	//dao.db.Where("biz_id =? AND biz = ?", bizId, biz).Updates(map[string]any{
-	//	"read_cnt": cnt,
-	//})
+	return G.incrReadCnt(G.db.WithContext(ctx), biz, bizId)
+}
 
-	// update a = a + 1
-	// 数据库帮你解决并发问题
-	// 有一个没考虑到，就是，我可能根本没这一行
-	// 事实上这里是一个 upsert 的语义
+func (G *GORMInteractiveDAO) incrReadCnt(tx *gorm.DB, biz string, bizId int64) error {
 	now := time.Now().UnixMilli()
-	return G.db.WithContext(ctx).Clauses(clause.OnConflict{
-		// MySQL 不写
-		//Columns:
+	return tx.Clauses(clause.OnConflict{
 		DoUpdates: clause.Assignments(map[string]any{
-			"read_cnt": gorm.Expr("read_cnt + 1"),
-			"utime":    time.Now().UnixMilli(),
+			"read_cnt": gorm.Expr("`read_cnt`+1"),
+			"utime":    now,
 		}),
 	}).Create(&Interactive{
-		Biz:     biz,
-		BizId:   bizId,
 		ReadCnt: 1,
 		Ctime:   now,
 		Utime:   now,
+		Biz:     biz,
+		BizId:   bizId,
 	}).Error
 }
 
@@ -86,7 +73,7 @@ func (G *GORMInteractiveDAO) InsertLikeInfo(ctx context.Context, biz string, biz
 	// 同时记录点赞，以及更新点赞计数
 	// 首先你需要一张表来记录，谁点给什么资源点了赞
 	now := time.Now().UnixMilli()
-	return G.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := G.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 先准备插入点赞记录
 		// 有没有可能已经点赞过了？
 		// 我要不要校验一下，这里必须是没有点赞过
@@ -96,12 +83,12 @@ func (G *GORMInteractiveDAO) InsertLikeInfo(ctx context.Context, biz string, biz
 				"status": 1,
 			}),
 		}).Create(&UserLikeBiz{
-			Biz:    biz,
-			BizId:  bizId,
 			Uid:    uid,
-			Status: 1,
 			Ctime:  now,
 			Utime:  now,
+			Biz:    biz,
+			BizId:  bizId,
+			Status: 1,
 		}).Error
 		if err != nil {
 			return err
@@ -112,16 +99,17 @@ func (G *GORMInteractiveDAO) InsertLikeInfo(ctx context.Context, biz string, biz
 			//Columns:
 			DoUpdates: clause.Assignments(map[string]any{
 				"like_cnt": gorm.Expr("like_cnt + 1"),
-				"utime":    time.Now().UnixMilli(),
+				"utime":    now,
 			}),
 		}).Create(&Interactive{
-			Biz:     biz,
-			BizId:   bizId,
 			LikeCnt: 1,
 			Ctime:   now,
 			Utime:   now,
+			Biz:     biz,
+			BizId:   bizId,
 		}).Error
 	})
+	return err
 }
 
 func (G *GORMInteractiveDAO) GetLikeInfo(ctx context.Context, biz string, bizId, uid int64) (UserLikeBiz, error) {
@@ -135,27 +123,33 @@ func (G *GORMInteractiveDAO) GetLikeInfo(ctx context.Context, biz string, bizId,
 func (G *GORMInteractiveDAO) DeleteLikeInfo(ctx context.Context, biz string, bizId, uid int64) error {
 	now := time.Now().UnixMilli()
 	// 控制事务超时
-	return G.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := G.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 两个操作
 		// 一个是软删除点赞记录
 		// 一个是减点赞数量
 		err := tx.Model(&UserLikeBiz{}).
 			Where("biz=? AND biz_id = ? AND uid = ?", biz, bizId, uid).
 			Updates(map[string]any{
-				"utime":  now,
 				"status": 0,
+				"utime":  now,
 			}).Error
 		if err != nil {
 			return err
 		}
-		return tx.Model(&Interactive{}).
-			// 这边命中了索引，然后没找到，所以不会加锁
-			Where("biz=? AND biz_id = ?", biz, bizId).
-			Updates(map[string]any{
+		return G.db.WithContext(ctx).Clauses(clause.OnConflict{
+			DoUpdates: clause.Assignments(map[string]any{
+				"like_cnt": gorm.Expr("`like_cnt`-1"),
 				"utime":    now,
-				"like_cnt": gorm.Expr("like_cnt-1"),
-			}).Error
+			}),
+		}).Create(&Interactive{
+			LikeCnt: 1,
+			Ctime:   now,
+			Utime:   now,
+			Biz:     biz,
+			BizId:   bizId,
+		}).Error
 	})
+	return err
 }
 
 func (G *GORMInteractiveDAO) Get(ctx context.Context, biz string, bizId int64) (Interactive, error) {
@@ -229,12 +223,12 @@ type Interactive struct {
 	//
 	// 联合索引的列的顺序：查询条件，区分度
 	// 这个名字无所谓
-	BizId int64 `gorm:"uniqueIndex:biz_id_type"`
+	BizId int64 `gorm:"uniqueIndex:biz_type_id"`
 	// 我这里biz 用的是 string，有些公司枚举使用的是 int 类型
 	// 0-article
 	// 1- xxx
 	// 默认是 BLOB/TEXT 类型
-	Biz string `gorm:"uniqueIndex:biz_id_type;type:varchar(128)"`
+	Biz string `gorm:"uniqueIndex:biz_type_id;type:varchar(128)"`
 	// 这个是阅读计数
 	ReadCnt    int64
 	LikeCnt    int64
@@ -243,19 +237,19 @@ type Interactive struct {
 	Utime      int64
 }
 
-// InteractiveV1 对写更友好
-// Interactive 对读更加友好
-type InteractiveV1 struct {
-	Id    int64 `gorm:"primaryKey,autoIncrement"`
-	BizId int64
-	Biz   string
-	// 这个是阅读计数
-	Cnt int64
-	// 阅读数/点赞数/收藏数
-	CntType string
-	Ctime   int64
-	Utime   int64
-}
+//// InteractiveV1 对写更友好
+//// Interactive 对读更加友好
+//type InteractiveV1 struct {
+//	Id    int64 `gorm:"primaryKey,autoIncrement"`
+//	BizId int64
+//	Biz   string
+//	// 这个是阅读计数
+//	Cnt int64
+//	// 阅读数/点赞数/收藏数
+//	CntType string
+//	Ctime   int64
+//	Utime   int64
+//}
 
 // UserLikeBiz 命名无能，用户点赞的某个东西
 type UserLikeBiz struct {
@@ -272,11 +266,11 @@ type UserLikeBiz struct {
 	// 2. 如果你的场景是，我的点赞数量，需要通过这里来比较/纠正
 	// biz_id 和 biz 在前
 	// select count(*) where biz = ? and biz_id = ?
-	Biz   string `gorm:"uniqueIndex:uid_biz_id_type;type:varchar(128)"`
-	BizId int64  `gorm:"uniqueIndex:uid_biz_id_type"`
+	Biz   string `gorm:"uniqueIndex:biz_type_id_uid;type:varchar(128)"`
+	BizId int64  `gorm:"uniqueIndex:biz_type_id_uid"`
 
 	// 谁的操作
-	Uid int64 `gorm:"uniqueIndex:uid_biz_id_type"`
+	Uid int64 `gorm:"uniqueIndex:biz_type_id_uid"`
 
 	Ctime int64
 	Utime int64
@@ -316,22 +310,22 @@ type UserCollectionBiz struct {
 	Utime int64
 }
 
-// 假如说我有一个需求，需要查询到收藏夹的信息，和收藏夹里面的资源
-// SELECT c.id as cid , c.name as cname, uc.biz_id as biz_id, uc.biz as biz
-// FROM `collection` as c JOIN `user_collection_biz` as uc
-// ON c.id = uc.cid
-// WHERE c.id IN (1,2,3)
-
-type CollectionItem struct {
-	Cid   int64
-	Cname string
-	BizId int64
-	Biz   string
-}
-
-func (G *GORMInteractiveDAO) GetItems() ([]CollectionItem, error) {
-	// 不记得构造 JOIN 查询
-	var items []CollectionItem
-	err := G.db.Raw("", 1, 2, 3).Find(&items).Error
-	return items, err
-}
+//// 假如说我有一个需求，需要查询到收藏夹的信息，和收藏夹里面的资源
+//// SELECT c.id as cid , c.name as cname, uc.biz_id as biz_id, uc.biz as biz
+//// FROM `collection` as c JOIN `user_collection_biz` as uc
+//// ON c.id = uc.cid
+//// WHERE c.id IN (1,2,3)
+//
+//type CollectionItem struct {
+//	Cid   int64
+//	Cname string
+//	BizId int64
+//	Biz   string
+//}
+//
+//func (G *GORMInteractiveDAO) GetItems() ([]CollectionItem, error) {
+//	// 不记得构造 JOIN 查询
+//	var items []CollectionItem
+//	err := G.db.Raw("", 1, 2, 3).Find(&items).Error
+//	return items, err
+//}

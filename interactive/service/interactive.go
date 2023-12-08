@@ -5,8 +5,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"webooktrial/internal/domain"
-	"webooktrial/internal/repository"
+	"webooktrial/interactive/domain"
+	"webooktrial/interactive/repository"
 	"webooktrial/pkg/logger"
 )
 
@@ -30,8 +30,15 @@ type interactiveService struct {
 }
 
 func (i *interactiveService) GetByIds(ctx context.Context, biz string, bizIds []int64) (map[int64]domain.Interactive, error) {
-	//TODO implement me
-	panic("implement me")
+	intrs, err := i.repo.GetByIds(ctx, biz, bizIds)
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[int64]domain.Interactive, len(intrs))
+	for _, intr := range intrs {
+		res[intr.BizId] = intr
+	}
+	return res, nil
 }
 
 func (i *interactiveService) IncrReadCnt(ctx context.Context, biz string, bizId int64) error {
@@ -41,34 +48,29 @@ func (i *interactiveService) IncrReadCnt(ctx context.Context, biz string, bizId 
 func (i *interactiveService) Get(
 	ctx context.Context, biz string, bizId, uid int64) (domain.Interactive, error) {
 	// 按照 repository 的语义(完成 domain.Interactive 的完整构造)，你这里拿到的就应该是包含全部字段的
-	var (
-		eg        errgroup.Group
-		intr      domain.Interactive
-		liked     bool
-		collected bool
-	)
-	eg.Go(func() error {
-		var err error
-		intr, err = i.repo.Get(ctx, biz, bizId)
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		liked, err = i.repo.Liked(ctx, biz, bizId, uid)
-		return err
-	})
-	eg.Go(func() error {
-		var err error
-		liked, err = i.repo.Collected(ctx, biz, bizId, uid)
-		return err
-	})
-	err := eg.Wait()
+	intr, err := i.repo.Get(ctx, biz, bizId)
 	if err != nil {
 		return domain.Interactive{}, err
 	}
-	intr.Liked = liked
-	intr.Collected = collected
-	return intr, err
+	var eg errgroup.Group
+	eg.Go(func() error {
+		intr.Liked, err = i.repo.Liked(ctx, biz, bizId, uid)
+		return err
+	})
+	eg.Go(func() error {
+		intr.Collected, err = i.repo.Collected(ctx, biz, bizId, uid)
+		return err
+	})
+	err = eg.Wait()
+	if err != nil {
+		// 这个查询失败只需要记录日志就可以，不需要中断执行
+		i.l.Error("查询用户是否点赞的信息失败",
+			logger.String("biz", biz),
+			logger.Int64("bizId", bizId),
+			logger.Int64("uid", uid),
+			logger.Error(err))
+	}
+	return intr, nil
 }
 
 func (i *interactiveService) Like(ctx context.Context, biz string, bizId int64, uid int64) error {

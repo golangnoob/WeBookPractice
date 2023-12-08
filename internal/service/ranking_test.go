@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
+	domain2 "webooktrial/interactive/domain"
+	"webooktrial/interactive/service"
 	"webooktrial/internal/domain"
 	svcmocks "webooktrial/internal/service/mocks"
 )
@@ -17,7 +19,7 @@ func TestRankingTopN(t *testing.T) {
 	testCases := []struct {
 		name string
 		mock func(ctrl *gomock.Controller) (ArticleService,
-			InteractiveService)
+			service.InteractiveService)
 
 		wantErr  error
 		wantArts []domain.Article
@@ -25,7 +27,7 @@ func TestRankingTopN(t *testing.T) {
 		{
 			name: "计算成功",
 			// 怎么模拟我的数据？
-			mock: func(ctrl *gomock.Controller) (ArticleService, InteractiveService) {
+			mock: func(ctrl *gomock.Controller) (ArticleService, service.InteractiveService) {
 				artSvc := svcmocks.NewMockArticleService(ctrl)
 				// 最简单，一批就搞完
 				artSvc.EXPECT().ListPub(gomock.Any(), gomock.Any(), 0, 3).
@@ -39,14 +41,14 @@ func TestRankingTopN(t *testing.T) {
 				intrSvc := svcmocks.NewMockInteractiveService(ctrl)
 				intrSvc.EXPECT().GetByIds(gomock.Any(),
 					"article", []int64{1, 2, 3}).
-					Return(map[int64]domain.Interactive{
+					Return(map[int64]domain2.Interactive{
 						1: {BizId: 1, LikeCnt: 1},
 						2: {BizId: 2, LikeCnt: 2},
 						3: {BizId: 3, LikeCnt: 3},
 					}, nil)
 				intrSvc.EXPECT().GetByIds(gomock.Any(),
 					"article", []int64{}).
-					Return(map[int64]domain.Interactive{}, nil)
+					Return(map[int64]domain2.Interactive{}, nil)
 				return artSvc, intrSvc
 			},
 			wantArts: []domain.Article{
@@ -61,7 +63,7 @@ func TestRankingTopN(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			artSvc, intrSvc := tc.mock(ctrl)
-			svc := NewBatchRankingService(artSvc, intrSvc)
+			svc := NewBatchRankingService(artSvc, intrSvc).(*BatchRankingService)
 			// 为了测试
 			svc.batchSize = 3
 			svc.n = 3
