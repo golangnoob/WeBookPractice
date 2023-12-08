@@ -12,6 +12,7 @@ scripts/
 /opentelemetry
 /cronjob
 /grpc
+buf.gen.yaml
 
 **/.idea
 **/*.iws
