@@ -32,11 +32,14 @@ type ArticleRepository interface {
 	//FindById(ctx context.Context, id int64) domain.Article
 }
 
-func NewArticleRepository(dao dao.ArticleDao, l logger.LoggerV1, cache cache.ArticleCache) ArticleRepository {
+func NewArticleRepository(dao dao.ArticleDao, l logger.LoggerV1,
+	cache cache.ArticleCache,
+	userRepo repository.UserRepository) ArticleRepository {
 	return &CachedArticleRepository{
-		dao:   dao,
-		l:     l,
-		cache: cache,
+		dao:      dao,
+		l:        l,
+		cache:    cache,
+		userRepo: userRepo,
 	}
 }
 

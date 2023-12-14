@@ -13,6 +13,7 @@ import (
 	"webooktrial/internal/events/article"
 	"webooktrial/internal/repository"
 	article3 "webooktrial/internal/repository/article"
+	"webooktrial/internal/repository/cache/local"
 	"webooktrial/internal/repository/cache/redis"
 	"webooktrial/internal/repository/dao"
 	article2 "webooktrial/internal/repository/dao/article"
@@ -32,6 +33,7 @@ var interactiveSvcProvider = wire.NewSet(
 var rankingServiceSet = wire.NewSet(
 	repository.NewCachedRankingRepository,
 	redis.NewRankingRedisCache,
+	local.NewRankingLocalCache,
 	service.NewBatchRankingService,
 )
 
@@ -48,6 +50,7 @@ func InitWebServer() *App {
 
 		interactiveSvcProvider,
 		rankingServiceSet,
+		ioc.InitGRPCClient,
 		ioc.InitJobs,
 		ioc.InitRankingJob,
 

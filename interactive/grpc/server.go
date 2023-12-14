@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -17,6 +18,14 @@ type InteractiveServiceServer struct {
 	intrv1.UnimplementedInteractiveServiceServer
 	// 核心业务逻辑一定是在 service 里
 	svc service.InteractiveService
+}
+
+func NewInteractiveServiceServer(svc service.InteractiveService) *InteractiveServiceServer {
+	return &InteractiveServiceServer{svc: svc}
+}
+
+func (i *InteractiveServiceServer) Register(server *grpc.Server) {
+	intrv1.RegisterInteractiveServiceServer(server, i)
 }
 
 func (i *InteractiveServiceServer) IncrReadCnt(ctx context.Context, request *intrv1.IncrReadCntRequest) (*intrv1.IncrReadCntResponse, error) {

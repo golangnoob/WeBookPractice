@@ -13,7 +13,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"webooktrial/internal/repository/dao"
+	"webooktrial/interactive/repository/dao"
 )
 
 var db *gorm.DB

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
+	intrv1 "webooktrial/api/proto/gen/intr/v1"
 	domain2 "webooktrial/interactive/domain"
-	"webooktrial/interactive/service"
 	"webooktrial/internal/domain"
 	svcmocks "webooktrial/internal/service/mocks"
 )
@@ -19,7 +19,7 @@ func TestRankingTopN(t *testing.T) {
 	testCases := []struct {
 		name string
 		mock func(ctrl *gomock.Controller) (ArticleService,
-			service.InteractiveService)
+			intrv1.InteractiveServiceClient)
 
 		wantErr  error
 		wantArts []domain.Article
@@ -27,7 +27,7 @@ func TestRankingTopN(t *testing.T) {
 		{
 			name: "计算成功",
 			// 怎么模拟我的数据？
-			mock: func(ctrl *gomock.Controller) (ArticleService, service.InteractiveService) {
+			mock: func(ctrl *gomock.Controller) (ArticleService, intrv1.InteractiveServiceClient) {
 				artSvc := svcmocks.NewMockArticleService(ctrl)
 				// 最简单，一批就搞完
 				artSvc.EXPECT().ListPub(gomock.Any(), gomock.Any(), 0, 3).

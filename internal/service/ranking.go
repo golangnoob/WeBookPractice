@@ -9,7 +9,7 @@ import (
 	"github.com/ecodeclub/ekit/queue"
 	"github.com/ecodeclub/ekit/slice"
 
-	"webooktrial/interactive/service"
+	intrv1 "webooktrial/api/proto/gen/intr/v1"
 	"webooktrial/internal/domain"
 	"webooktrial/internal/repository"
 )
@@ -22,7 +22,7 @@ type RankingService interface {
 
 type BatchRankingService struct {
 	artSvc    ArticleService
-	intrSvc   service.InteractiveService
+	intrSvc   intrv1.InteractiveServiceClient
 	repo      repository.RankingRepository
 	batchSize int
 	n         int
@@ -30,12 +30,15 @@ type BatchRankingService struct {
 	scoreFunc func(t time.Time, likeCnt int64) float64
 }
 
-func NewBatchRankingService(artSvc ArticleService, intrSvc service.InteractiveService) RankingService {
+func NewBatchRankingService(artSvc ArticleService,
+	intrSvc intrv1.InteractiveServiceClient,
+	repo repository.RankingRepository) RankingService {
 	return &BatchRankingService{
 		artSvc:    artSvc,
 		intrSvc:   intrSvc,
 		batchSize: 100,
 		n:         100,
+		repo:      repo,
 		scoreFunc: func(t time.Time, likeCnt int64) float64 {
 			sec := time.Since(t).Seconds()
 			return float64(likeCnt-1) / math.Pow(sec, 1.5)
@@ -82,14 +85,21 @@ func (b *BatchRankingService) topN(ctx context.Context) ([]domain.Article, error
 			func(idx int, src domain.Article) int64 {
 				return src.Id
 			})
-		intrs, err := b.intrSvc.GetByIds(ctx, "article", ids)
+		intrs, err := b.intrSvc.GetByIds(ctx, &intrv1.GetByIdsRequest{
+			Biz: "article",
+			Ids: ids,
+		})
 		if err != nil {
 			return nil, err
+		}
+
+		if len(intrs.Intrs) == 0 {
+			return nil, errors.New("没有数据")
 		}
 		// 合并计算 score
 		// 排序
 		for _, art := range arts {
-			intr := intrs[art.Id]
+			intr := intrs.Intrs[art.Id]
 			//if !ok {
 			//	// 都没有，肯定不可能是热榜
 			//	continue

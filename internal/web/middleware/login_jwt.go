@@ -40,9 +40,9 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 
 		tokenStr := l.ExtractToken(ctx)
 
-		claims := &ijwt.UserClaims{}
+		claims := ijwt.UserClaims{}
 		// ParseWithClaims 里面，一定要传入指针
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(tokenStr, &claims, func(token *jwt.Token) (interface{}, error) {
 			return ijwt.AtKey, nil
 		})
 		if err != nil {

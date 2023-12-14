@@ -23,14 +23,14 @@ func NewCronJobBuilder(l logger.LoggerV1) *CronJobBuilder {
 	p := prometheus.NewSummaryVec(prometheus.SummaryOpts{
 		Namespace: "go_study",
 		Subsystem: "webook",
-		Name:      "统计定时任务的执行情况",
-		Help:      "cron_job",
+		Help:      "统计定时任务的执行情况",
+		Name:      "cron_job",
 	}, []string{"name", "success"})
 	prometheus.MustRegister(p)
 	return &CronJobBuilder{
 		l:      l,
 		p:      p,
-		tracer: otel.GetTracerProvider().Tracer("webook/internal/job"),
+		tracer: otel.GetTracerProvider().Tracer("webooktrial/internal/job"),
 	}
 }
 

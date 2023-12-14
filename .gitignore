@@ -13,7 +13,7 @@ scripts/
 /cronjob
 /grpc
 buf.gen.yaml
-
+**/data.sql
 **/.idea
 **/*.iws
 **/*.iml
