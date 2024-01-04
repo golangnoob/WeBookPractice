@@ -133,7 +133,7 @@ func (pcb *Callbacks) Initialize(db *gorm.DB) error {
 func newCallbacks() *Callbacks {
 	vector := promsdk.NewSummaryVec(promsdk.SummaryOpts{
 		// 在这边，你要考虑设置各种 Namespace
-		Namespace: "geekbang_daming",
+		Namespace: "go_study",
 		Subsystem: "webook",
 		Name:      "gorm_query_time",
 		Help:      "统计 GORM 的执行时间",

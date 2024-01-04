@@ -19,7 +19,6 @@ func TestGRPCClient(t *testing.T) {
 	resp, err := client.Get(context.Background(), &intrv1.GetRequest{
 		Biz:   "test",
 		BizId: 2,
-		Uid:   345,
 	})
 	require.NoError(t, err)
 	t.Log(resp.Intr)

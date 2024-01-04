@@ -71,7 +71,7 @@ func (g *GormJobDAO) Preempt(ctx context.Context) (Job, error) {
 		// 1. 一次拉一批，我一次性取出 100 条来，然后，我随机从某一条开始，向后开始抢占
 		// 2. 我搞个随机偏移量，0-100 生成一个随机偏移量。兜底：第一轮没查到，偏移量回归到 0
 		// 3. 我搞一个 id 取余分配，status = ? AND next_time <=? AND id%10 = ? 兜底：不加余数条件，取next_time 最老的
-		err := db.Where("status = ? AND next_time <= ?", jobStatusWaiting, now).
+		err := db.Where("status = ? AND next_time <= ?", jobStatusWaiting, now.UnixMilli()).
 			First(&j).Error
 		if err != nil {
 			// // 没有任务。从这里返回
@@ -85,7 +85,7 @@ func (g *GormJobDAO) Preempt(ctx context.Context) (Job, error) {
 		res := db.Where("id = ? AND version = ?", j.Id, j.Version).
 			Updates(map[string]any{
 				"status":  jobStatusRunning,
-				"utime":   now,
+				"utime":   now.UnixMilli(),
 				"version": j.Version + 1,
 			})
 		if res.Error != nil {

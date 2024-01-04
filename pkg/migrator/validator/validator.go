@@ -2,7 +2,6 @@ package validator
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/ecodeclub/ekit/slice"
@@ -10,9 +9,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 
-	"webooktrial/migrator"
-	"webooktrial/migrator/events"
 	"webooktrial/pkg/logger"
+	"webooktrial/pkg/migrator"
+	"webooktrial/pkg/migrator/events"
 )
 
 type Validator[T migrator.Entity] struct {
@@ -28,6 +27,12 @@ type Validator[T migrator.Entity] struct {
 
 	// 在这里加字段，比如说，在查询 base 根据什么列来排序，在 target 的时候，根据什么列来查询数据
 	// 最极端的情况，是这样
+
+	utime int64
+	// <=0 说明直接退出校验循环
+	// > 0 真的 sleep
+	sleepInterval time.Duration
+	fromBase      func(ctx context.Context, offset int) (T, error)
 }
 
 func NewValidator[T migrator.Entity](base *gorm.DB, target *gorm.DB,
@@ -35,16 +40,37 @@ func NewValidator[T migrator.Entity](base *gorm.DB, target *gorm.DB,
 	highLoad := atomicx.NewValueOf[bool](false)
 	go func() {
 		// 在这里，去查询数据库的状态
-		// 你的校验代码不太可能是性能瓶颈，性能瓶颈一般在数据库
-		// 你也可以结合本地的 CPU，内存负载来判定
+		// 校验代码不太可能是性能瓶颈，性能瓶颈一般在数据库
+		// 也可以结合本地的 CPU，内存负载来判定
 	}()
-	return &Validator[T]{base: base, target: target,
+	val := &Validator[T]{base: base, target: target,
 		l: l, p: p,
 		direction: direction,
 		highLoad:  highLoad}
+	val.fromBase = val.fullFromBase
+	return val
+}
+
+func (v *Validator[T]) SleepInterval(i time.Duration) *Validator[T] {
+	v.sleepInterval = i
+	return v
+
+}
+
+func (v *Validator[T]) Utime(utime int64) *Validator[T] {
+	v.utime = utime
+	return v
+}
+
+func (v *Validator[T]) Incr() *Validator[T] {
+	v.fromBase = v.incrFromBase
+	return v
 }
 
 // Validate 调用者可以通过 ctx 来控制校验程序退出
+// utime 上面至少要有一个索引，并且 utime 必须是第一列
+// <utime, col1, col2>, <utime> 这种可以
+// <utime, id> 然后执行 SELECT * FROM xx WHERE utime > ? ORDER BY id
 func (v *Validator[T]) Validate(ctx context.Context) error {
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -59,26 +85,28 @@ func (v *Validator[T]) Validate(ctx context.Context) error {
 	return eg.Wait()
 }
 
+// Validate 调用者可以通过 ctx 来控制校验程序退出
+// utime 上面至少要有一个索引，并且 utime 必须是第一列
+// <utime, col1, col2>, <utime> 这种可以
+// <utime, id> 然后执行 SELECT * FROM xx WHERE utime > ? ORDER BY id
 func (v *Validator[T]) validateBaseToTarget(ctx context.Context) {
-	offset := -1
+	offset := 0
 	for {
 		if v.highLoad.Load() {
-			// g挂起
+			// 挂起
 		}
-		// 进来就更新 offset，比较好控制
-		// 因为后面有很多的 continue 和 return
-		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
-		offset++
-		var src T
-		err := v.base.WithContext(dbCtx).Offset(offset).Order("id").First(&src).Error
-		cancel()
-		switch {
-		case err == nil:
+		src, err := v.fromBase(ctx, offset)
+		switch err {
+		case context.Canceled, context.DeadlineExceeded:
+			return
+		case nil:
 			// 在 base 中查询到了数据，现在去 target 中查找对应的数据
 			var dst T
 			err = v.target.Where("id = ?", src.ID()).First(&dst).Error
-			switch {
-			case err == nil:
+			switch err {
+			case context.Canceled, context.DeadlineExceeded:
+				return
+			case nil:
 				// 在 target 中找到了对应数据，开始比较
 				// 原则上可以使用反射来比较reflect.DeepEqual(src, dst)
 				//var srcAny any = src
@@ -100,7 +128,7 @@ func (v *Validator[T]) validateBaseToTarget(ctx context.Context) {
 					// 不相等，上报给 kafka
 					v.notify(ctx, src.ID(), events.InconsistentEventTypeNEQ)
 				}
-			case errors.Is(err, gorm.ErrRecordNotFound):
+			case gorm.ErrRecordNotFound:
 				// target 缺少数据
 				v.notify(ctx, src.ID(), events.InconsistentEventTypeTargetMissing)
 			default:
@@ -108,23 +136,27 @@ func (v *Validator[T]) validateBaseToTarget(ctx context.Context) {
 				// 你有两种做法：
 				// 1. 我认为，大概率数据是一致的，我记录一下日志，下一条
 				v.l.Error("查询 target 数据失败", logger.Error(err))
-				continue
 				// 2. 我认为，出于保险起见，我应该报数据不一致，试着去修一下
 				// 如果真的不一致了，没事，修它
 				// 如果假的不一致（也就是数据一致），也没事，就是多余修了一次
 				// 不好用哪个 InconsistentType
 			}
-		case errors.Is(err, gorm.ErrRecordNotFound):
+		case gorm.ErrRecordNotFound:
 			// 没有数据了，全量校验结束
-			return
+			if v.sleepInterval <= 0 {
+				return
+			}
+			time.Sleep(v.sleepInterval)
+			continue
 		default:
 			// 数据库错误
 			v.l.Error("校验数据，查询 base 出错",
 				logger.Error(err))
-			// offset 最好是挪一下
-
-			continue
+			// 同时支持全量校验和增量校验，这里就不能直接返回
+			// 有些情况下，用户希望退出，有些情况下。用户希望继续
+			// 当用户希望继续的时候，sleep 一下
 		}
+		offset++
 	}
 }
 
@@ -136,23 +168,34 @@ func (v *Validator[T]) validateBaseToTarget(ctx context.Context) {
 // 比如说，我先 count 第一个月的数据，一旦有数据删除了，你还得一条条查出来
 
 func (v *Validator[T]) validateTargetToBase(ctx context.Context) {
-	offset := -v.batchSize
+	offset := 0
 	for {
-		offset = offset + v.batchSize
 		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
-
 		var dstTs []T
-		err := v.target.WithContext(dbCtx).Select("id").
+		err := v.target.WithContext(dbCtx).
+			Where("utime > ?", v.utime).Select("id").
 			Offset(offset).Limit(v.batchSize).
-			Order("id").Find(&dstTs).Error
+			Order("utime").Find(&dstTs).Error
 		cancel()
 		if len(dstTs) == 0 {
-			return
+			// 没数据了。直接返回
+			if v.sleepInterval <= 0 {
+				return
+			}
+			time.Sleep(v.sleepInterval)
+			continue
 		}
 		switch err {
-		case gorm.ErrRecordNotFound:
-			// 没有数据了
+		case context.Canceled, context.DeadlineExceeded:
+			// 超时或者被人取消了
 			return
+		// 正常来说，gorm 在 Find 方法接收的是切片的时候，不会返回 gorm.ErrRecordNotFound
+		case gorm.ErrRecordNotFound:
+			if v.sleepInterval <= 0 {
+				return
+			}
+			time.Sleep(v.sleepInterval)
+			continue
 		case nil:
 			ids := slice.Map(dstTs, func(idx int, t T) int64 {
 				return t.ID()
@@ -160,6 +203,9 @@ func (v *Validator[T]) validateTargetToBase(ctx context.Context) {
 			var srcTs []T
 			err = v.base.Where("id IN ?", ids).Find(&srcTs).Error
 			switch err {
+			case context.Canceled, context.DeadlineExceeded:
+				// 超时或者被人取消了
+				return
 			case gorm.ErrRecordNotFound:
 				// 这一批次全部丢失
 				v.notifyBaseMissing(ctx, ids)
@@ -172,17 +218,36 @@ func (v *Validator[T]) validateTargetToBase(ctx context.Context) {
 				v.notifyBaseMissing(ctx, diff)
 			default:
 				// 记录日志
-				continue
 			}
 		default:
 			// 记录日志，continue 掉
-			continue
+			v.l.Error("查询target 失败", logger.Error(err))
 		}
+		offset += len(dstTs)
 		if len(dstTs) < v.batchSize {
-			// 没数据了
-			return
+			if v.sleepInterval <= 0 {
+				return
+			}
+			time.Sleep(v.sleepInterval)
 		}
 	}
+}
+
+func (v *Validator[T]) fullFromBase(ctx context.Context, offset int) (T, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var src T
+	err := v.base.WithContext(dbCtx).Offset(offset).Order("id").First(&src).Error
+	return src, err
+}
+
+func (v *Validator[T]) incrFromBase(ctx context.Context, offset int) (T, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var src T
+	err := v.base.WithContext(dbCtx).Where("utime > ?", v.utime).
+		Offset(offset).Order("utime ASC, id ASC").First(&src).Error
+	return src, err
 }
 
 func (v *Validator[T]) notify(ctx context.Context, id int64, typ string) {
@@ -199,6 +264,20 @@ func (v *Validator[T]) notify(ctx context.Context, id int64, typ string) {
 		v.l.Error("发送数据不一致消息失败", logger.Error(err))
 	}
 }
+
+// 通用写法，摆脱对 T 的依赖
+//func (v *Validator[T]) intrFromBaseV1(ctx context.Context, offset int) (T, error) {
+//	rows, err := v.base.WithContext(dbCtx).
+//		// 最好不要取等号
+//		Where("utime > ?", v.utime).
+//		Offset(offset).
+//		Order("utime ASC, id ASC").Rows()
+//	cols, err := rows.Columns()
+//	// 所有列的值
+//	vals := make([]any, len(cols))
+//	rows.Scan(vals...)
+//	return vals
+//}
 
 func (v *Validator[T]) notifyBaseMissing(ctx context.Context, ids []int64) {
 	for _, id := range ids {

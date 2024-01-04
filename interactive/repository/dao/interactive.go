@@ -6,6 +6,8 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	"webooktrial/pkg/migrator"
 )
 
 //go:generate mockgen -source=./interactive.go -package=daomocks -destination=mocks/interactive.mock.go InteractiveDAO
@@ -25,6 +27,15 @@ type InteractiveDAO interface {
 
 type GORMInteractiveDAO struct {
 	db *gorm.DB
+}
+
+func (i Interactive) ID() int64 {
+	return i.Id
+}
+
+func (i Interactive) CompareTo(dst migrator.Entity) bool {
+	dstVal, ok := dst.(Interactive)
+	return ok && i == dstVal
 }
 
 func (G *GORMInteractiveDAO) GetByIds(ctx context.Context, biz string, ids []int64) ([]Interactive, error) {

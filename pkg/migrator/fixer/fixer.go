@@ -7,8 +7,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"webooktrial/migrator"
-	"webooktrial/migrator/events"
+	"webooktrial/pkg/migrator"
+	"webooktrial/pkg/migrator/events"
 )
 
 type Fixer[T migrator.Entity] struct {
