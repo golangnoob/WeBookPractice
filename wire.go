@@ -5,7 +5,6 @@ package main
 import (
 	"github.com/google/wire"
 
-	"webooktrial/interactive/events"
 	repository2 "webooktrial/interactive/repository"
 	redis2 "webooktrial/interactive/repository/cache/redis"
 	dao2 "webooktrial/interactive/repository/dao"
@@ -48,14 +47,20 @@ func InitWebServer() *App {
 		ioc.NewConsumers,
 		ioc.NewSyncProducer,
 
-		interactiveSvcProvider,
+		// 流量控制用
+		//ioc.InitIntrGRPCClient,
+		//interactiveSvcProvider,
+
+		// 启用了 etcd 作为配置中心
+		ioc.InitEtcd,
+		ioc.InitIntrGRPCClientV1,
+
 		rankingServiceSet,
-		ioc.InitGRPCClient,
 		ioc.InitJobs,
 		ioc.InitRankingJob,
 
 		// consumer
-		events.NewInteractiveReadEventBatchConsumer,
+		//events.NewInteractiveReadEventBatchConsumer,
 		article.NewKafkaProducer,
 
 		// 初始化 DAO

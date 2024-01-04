@@ -6,11 +6,14 @@ import (
 
 	grpc2 "webooktrial/interactive/grpc"
 	"webooktrial/pkg/grpcx"
+	"webooktrial/pkg/logger"
 )
 
-func InitGRPCxServer(intrServer *grpc2.InteractiveServiceServer) *grpcx.Server {
+func InitGRPCxServer(l logger.LoggerV1,
+	intrServer *grpc2.InteractiveServiceServer) *grpcx.Server {
 	type Config struct {
-		Addr string `yaml:"addr"`
+		port      int      `yaml:"port"`
+		EtcdAddrs []string `yaml:"etcdAddrs"`
 	}
 	var cfg Config
 	err := viper.UnmarshalKey("grpc.server", &cfg)
@@ -20,7 +23,10 @@ func InitGRPCxServer(intrServer *grpc2.InteractiveServiceServer) *grpcx.Server {
 	server := grpc.NewServer()
 	intrServer.Register(server)
 	return &grpcx.Server{
-		Server: server,
-		Addr:   cfg.Addr,
+		Server:    server,
+		Port:      cfg.port,
+		EtcdAddrs: cfg.EtcdAddrs,
+		Name:      "interactive",
+		L:         l,
 	}
 }

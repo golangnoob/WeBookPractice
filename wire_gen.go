@@ -8,7 +8,6 @@ package main
 
 import (
 	"github.com/google/wire"
-	"webooktrial/interactive/events"
 	repository2 "webooktrial/interactive/repository"
 	redis2 "webooktrial/interactive/repository/cache/redis"
 	dao2 "webooktrial/interactive/repository/dao"
@@ -56,15 +55,11 @@ func InitWebServer() *App {
 	syncProducer := ioc.NewSyncProducer(client)
 	producer := article3.NewKafkaProducer(syncProducer)
 	articleService := service.NewArticleService(articleRepository, loggerV1, producer)
-	interactiveDAO := dao2.NewGORMInteractiveDAO(db)
-	interactiveCache := redis2.NewRedisInteractiveCache(cmdable)
-	interactiveRepository := repository2.NewCachedInteractiveRepository(interactiveDAO, interactiveCache, loggerV1)
-	interactiveService := service2.NewInteractiveService(interactiveRepository, loggerV1)
-	interactiveServiceClient := ioc.InitGRPCClient(interactiveService)
+	clientv3Client := ioc.InitEtcd()
+	interactiveServiceClient := ioc.InitIntrGRPCClientV1(clientv3Client)
 	articleHandler := web.NewArticleHandler(articleService, loggerV1, interactiveServiceClient)
 	engine := ioc.InitWebServer(v, userHandler, oAuth2WechatHandler, articleHandler)
-	interactiveReadEventBatchConsumer := events.NewInteractiveReadEventBatchConsumer(client, interactiveRepository, loggerV1)
-	v2 := ioc.NewConsumers(interactiveReadEventBatchConsumer)
+	v2 := ioc.NewConsumers()
 	rankingRedisCache := redis.NewRankingRedisCache(cmdable)
 	rankingLocalCache := local.NewRankingLocalCache()
 	rankingRepository := repository.NewCachedRankingRepository(rankingRedisCache, rankingLocalCache)

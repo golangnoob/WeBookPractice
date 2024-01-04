@@ -53,7 +53,7 @@ func InitWebServer() *gin.Engine {
 		//article.NewGormArticleDao,
 		repository.NewCodeRepository,
 		interactiveSvcProvider,
-		ioc.InitGRPCClient,
+		ioc.InitIntrGRPCClient,
 		//article2.NewArticleRepository,
 		// service 部分
 		// 集成测试我们显式指定使用内存实现
@@ -85,7 +85,7 @@ func InitArticleHandler(dao article.ArticleDao) *web.ArticleHandler {
 		userSvcProvider,
 		redis.NewRedisArticleCache,
 		interactiveSvcProvider,
-		ioc.InitGRPCClient,
+		ioc.InitIntrGRPCClient,
 		//wire.InterfaceValue(new(article.ArticleDAO), dao),
 		//article.NewGormArticleDao,
 		article2.NewArticleRepository,

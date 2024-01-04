@@ -4,7 +4,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/spf13/viper"
 
-	events2 "webooktrial/interactive/events"
 	"webooktrial/internal/events"
 )
 
@@ -34,7 +33,12 @@ func NewSyncProducer(client sarama.Client) sarama.SyncProducer {
 	return res
 }
 
+//// NewConsumers 面临的问题依旧是所有的 Consumer 在这里注册一下
+//func NewConsumers(c1 *events2.InteractiveReadEventBatchConsumer) []events.Consumer {
+//	return []events.Consumer{c1}
+//}
+
 // NewConsumers 面临的问题依旧是所有的 Consumer 在这里注册一下
-func NewConsumers(c1 *events2.InteractiveReadEventBatchConsumer) []events.Consumer {
-	return []events.Consumer{c1}
+func NewConsumers() []events.Consumer {
+	return []events.Consumer{}
 }
