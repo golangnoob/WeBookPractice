@@ -46,7 +46,7 @@ func (c *CachedReadCntRepository) GetByIds(ctx context.Context, biz string, ids 
 
 func (c *CachedReadCntRepository) BatchIncrReadCnt(ctx context.Context, bizs []string, bizId []int64) error {
 	// 可以用 map 合并吗？
-	// 看情况。如果一批次里面，biz 和 bizid 都相等的占很多，那么就map 合并，性能会更好
+	// 看情况。如果一批次里面，biz 和 biz_id 都相等的占很多，那么就map 合并，性能会更好
 	// 不然你合并了没有效果
 
 	// 为什么快？
