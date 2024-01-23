@@ -93,6 +93,9 @@ func (r *CachedUserRepository) FindById(ctx context.Context, id int64) (domain.U
 	//}
 	// 再从 dao 里面找
 	// 找到了回写 cache
+	if ctx.Value("limited") == "true" {
+		return domain.User{}, errors.New("触发限流，缓存未命中，不查询数据库")
+	}
 
 	ue, err := r.dao.FindById(ctx, id)
 	if err != nil {
