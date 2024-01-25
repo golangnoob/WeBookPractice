@@ -11,6 +11,7 @@ sarama/
 scripts/
 /opentelemetry
 /cronjob
+/pkg/wego
 /grpc
 buf.gen.yaml
 **/data.sql

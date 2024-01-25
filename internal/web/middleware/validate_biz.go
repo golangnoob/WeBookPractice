@@ -1,6 +1,6 @@
 package middleware
 
-//func Build() gin.HandlerFunc {
+//func BuildUnaryServerInterceptor() gin.HandlerFunc {
 //	return func(ctx *gin.Context) {
 //		// order id/order sn
 //		bizId := ctx.GetHeader("biz_id")

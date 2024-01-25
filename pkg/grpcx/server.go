@@ -22,8 +22,10 @@ type Server struct {
 	L         logger.LoggerV1
 	kaCancel  func()
 	em        endpoints.Manager
-	client    *etcdv3.Client
-	key       string
+	// ETCD 服务注册租约 TTL
+	EtcdTTL    int64
+	EtcdClient *etcdv3.Client
+	EtcdKey    string
 }
 
 func (s *Server) Serve() error {
@@ -45,7 +47,7 @@ func (s *Server) register() error {
 	if err != nil {
 		return err
 	}
-	s.client = client
+	s.EtcdClient = client
 	// endpoint 以服务为维度。一个服务一个 Manager
 	em, err := endpoints.NewManager(client, "service/"+s.Name)
 	if err != nil {
@@ -53,11 +55,10 @@ func (s *Server) register() error {
 	}
 	addr := netx.GetOutboundIP() + ":" + strconv.Itoa(s.Port)
 	key := "service/" + s.Name + addr
-	s.key = key
+	s.EtcdKey = key
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	var ttl int64 = 30
-	leaseResp, err := client.Grant(ctx, ttl)
+	leaseResp, err := client.Grant(ctx, s.EtcdTTL)
 	err = em.AddEndpoint(ctx, key, endpoints.Endpoint{
 		Addr: addr,
 	}, etcdv3.WithLease(leaseResp.ID))
@@ -84,13 +85,13 @@ func (s *Server) Close() error {
 	if s.em != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		err := s.em.DeleteEndpoint(ctx, s.key)
+		err := s.em.DeleteEndpoint(ctx, s.EtcdKey)
 		if err != nil {
 			return err
 		}
 	}
-	if s.client != nil {
-		err := s.client.Close()
+	if s.EtcdClient != nil {
+		err := s.EtcdClient.Close()
 		if err != nil {
 			return err
 		}

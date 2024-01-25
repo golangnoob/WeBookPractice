@@ -47,7 +47,7 @@ func InitMiddlewares(redisClient redis.Cmdable, jwtHdl ijwt.Handler, l logger.Lo
 	return []gin.HandlerFunc{
 		corsHdl(),
 		IgnorePathsHdl(jwtHdl),
-		//bd.Build(),
+		//bd.BuildUnaryServerInterceptor(),
 		(&metric.MiddlewareBuilder{
 			Namespace:  "go_study",
 			Subsystem:  "webook",

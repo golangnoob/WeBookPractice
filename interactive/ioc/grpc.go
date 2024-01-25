@@ -14,6 +14,7 @@ func InitGRPCxServer(l logger.LoggerV1,
 	type Config struct {
 		port      int      `yaml:"port"`
 		EtcdAddrs []string `yaml:"etcdAddrs"`
+		EtcdTTL   int64    `yaml:"etcdTTL"`
 	}
 	var cfg Config
 	err := viper.UnmarshalKey("grpc.server", &cfg)
@@ -26,6 +27,7 @@ func InitGRPCxServer(l logger.LoggerV1,
 		Server:    server,
 		Port:      cfg.port,
 		EtcdAddrs: cfg.EtcdAddrs,
+		EtcdTTL:   cfg.EtcdTTL,
 		Name:      "interactive",
 		L:         l,
 	}

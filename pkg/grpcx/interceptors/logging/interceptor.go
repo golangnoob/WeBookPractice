@@ -23,6 +23,10 @@ type InterceptorBuilder struct {
 	respBody bool
 }
 
+func NewInterceptorBuilder(l logger.LoggerV1) *InterceptorBuilder {
+	return &InterceptorBuilder{l: l}
+}
+
 func (b *InterceptorBuilder) BuildClient() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		//start := time.Now()
@@ -34,45 +38,45 @@ func (b *InterceptorBuilder) BuildClient() grpc.UnaryClientInterceptor {
 	}
 }
 
-func (b *InterceptorBuilder) Build() grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
-		start := time.Now()
+func (b *InterceptorBuilder) BuildUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (res interface{}, err error) {
+		// 默认过滤掉该探活日志
+		if info.FullMethod == "/grpc.health.v1.Health/Check" {
+			return handler(ctx, req)
+		}
+
+		var start = time.Now()
+		var fields = make([]logger.Field, 0, 20)
 		var event = "normal"
+
 		defer func() {
-			duration := time.Since(start)
+			cost := time.Since(start)
 			if rec := recover(); rec != nil {
-				switch recTyp := rec.(type) {
+				switch recType := rec.(type) {
 				case error:
-					err = recTyp
+					err = recType
 				default:
 					err = fmt.Errorf("%v", rec)
 				}
 				stack := make([]byte, 4096)
 				stack = stack[:runtime.Stack(stack, true)]
 				event = "recover"
-				err = status.New(codes.Internal, "panic err"+err.Error()).Err()
+				err = status.New(codes.Internal, "panic, err "+err.Error()).Err()
 			}
-			fields := []logger.Field{
-				logger.Int64("cost", duration.Milliseconds()),
+			st, _ := status.FromError(err)
+			fields = append(fields,
 				logger.String("type", "unary"),
-				logger.String("method", info.FullMethod),
+				logger.String("code", st.Code().String()),
+				logger.String("code_msg", st.Message()),
 				logger.String("event", event),
-				// 这一个部分，是需要的客户端配合的,
-				// 需要知道是哪一个业务调用过来的
-				// 是哪个业务的哪个节点过来的
+				logger.String("method", info.FullMethod),
+				logger.Int64("cost", cost.Milliseconds()),
 				logger.String("peer", b.PeerName(ctx)),
 				logger.String("peer_ip", b.PeerIP(ctx)),
-			}
-			if err != nil {
-				st, _ := status.FromError(err)
-				fields = append(fields, logger.String("code",
-					st.Code().String()),
-					logger.String("code_msg", st.Message()))
-			}
-
-			b.l.Info("RPC请求", fields...)
+			)
+			b.l.Info("RPC调用", fields...)
 		}()
-		resp, err = handler(ctx, req)
-		return
+
+		return handler(ctx, req)
 	}
 }
