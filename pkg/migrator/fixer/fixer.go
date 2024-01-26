@@ -19,7 +19,7 @@ type Fixer[T migrator.Entity] struct {
 
 // Fix
 // 最一了百了的写法，直接覆盖数据
-// 把 event 当成一个触发器，不依赖的 event 的具体内容（ID 必须不可变）
+// 把 events 当成一个触发器，不依赖的 events 的具体内容（ID 必须不可变）
 // 可以将修复也改成批量
 func (f *Fixer[T]) Fix(ctx context.Context, evt events.InconsistentEvent) error {
 	var t T

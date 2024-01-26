@@ -67,10 +67,10 @@ func (s *Scheduler[T]) RegisterRoutes(server *gin.RouterGroup) {
 	server.POST("/src_first", ginx.Wrap(s.SrcFirst))
 	server.POST("/dst_first", ginx.Wrap(s.DstFirst))
 	server.POST("/dst_only", ginx.Wrap(s.DstOnly))
-	server.POST("/full/start", ginx.Wrap(s.StartFullValidation))
+	server.POST("/full/startup", ginx.Wrap(s.StartFullValidation))
 	server.POST("/full/stop", ginx.Wrap(s.StopFullValidation))
 	server.POST("/incr/stop", ginx.Wrap(s.StopIncrementValidation))
-	server.POST("/incr/start", ginx.WrapBodyV1[StartIncrRequest](s.StartIncrementValidation))
+	server.POST("/incr/startup", ginx.WrapBodyV1[StartIncrRequest](s.StartIncrementValidation))
 }
 
 // ---- 下面是四个阶段 ---- //

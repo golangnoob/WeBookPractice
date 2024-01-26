@@ -20,7 +20,7 @@ type ArticleService interface {
 	Withdraw(ctx *gin.Context, art domain.Article) error
 	List(ctx context.Context, uid int64, offset int, limit int) ([]domain.Article, error)
 	GetById(ctx context.Context, id int64) (domain.Article, error)
-	// ListPub 只会取 start 七天内的数据
+	// ListPub 只会取 startup 七天内的数据
 	ListPub(ctx context.Context, start time.Time, offset, limit int) ([]domain.Article, error)
 	GetPublishedById(ctx context.Context, id int64, uid int64) (domain.Article, error)
 }
@@ -62,7 +62,7 @@ func (a *ArticleCoreService) GetPublishedById(ctx context.Context, id int64, uid
 			// 生产者也可以通过改批量来提高性能
 			er := a.producer.ProduceReadEvent(
 				// 即便你的消费者要用 art 的里面的数据，
-				// 让它去查询，你不要在 event 里面带
+				// 让它去查询，你不要在 events 里面带
 				ctx, events.ReadEvent{
 					Uid: uid,
 					Aid: id,

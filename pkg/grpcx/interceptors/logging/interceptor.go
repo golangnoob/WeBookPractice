@@ -29,8 +29,8 @@ func NewInterceptorBuilder(l logger.LoggerV1) *InterceptorBuilder {
 
 func (b *InterceptorBuilder) BuildClient() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		//start := time.Now()
-		//event := "normal"
+		//startup := time.Now()
+		//events := "normal"
 		//defer func() {
 		//	// 照着抄
 		//}()
@@ -68,7 +68,7 @@ func (b *InterceptorBuilder) BuildUnaryServerInterceptor() grpc.UnaryServerInter
 				logger.String("type", "unary"),
 				logger.String("code", st.Code().String()),
 				logger.String("code_msg", st.Message()),
-				logger.String("event", event),
+				logger.String("events", event),
 				logger.String("method", info.FullMethod),
 				logger.Int64("cost", cost.Milliseconds()),
 				logger.String("peer", b.PeerName(ctx)),
