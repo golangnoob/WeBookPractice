@@ -55,3 +55,8 @@ func (req ArticleReq) toDomain(uid int64) domain.Article {
 		},
 	}
 }
+
+type RewardReq struct {
+	Id     int64 `json:"id"`
+	Amount int64 `json:"amount"`
+}
