@@ -32,6 +32,7 @@ func (w *WechatNativeRewardService) PreReward(ctx context.Context, r domain.Rewa
 	if err != nil {
 		return domain.CodeURL{}, err
 	}
+	// 也可以在这里记录分账信息
 	resp, err := w.client.NativePrepay(ctx, &pmtv1.PrepayRequest{
 		Amt: &pmtv1.Amount{
 			Total:    r.Amt,
@@ -141,6 +142,7 @@ func (w *WechatNativeRewardService) UpdateReward(ctx context.Context, bizTradeNO
 				logger.String("biz_trade_no", bizTradeNO),
 				logger.Error(err))
 			// 做好监控和告警，这里
+			// 引入自动修复功能
 			return err
 		}
 	}

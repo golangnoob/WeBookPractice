@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+
+	"webooktrial/pkg/gormx/callbacks/doublewrite"
 )
 
 func TestConnPool(t *testing.T) {
@@ -19,10 +21,10 @@ func TestConnPool(t *testing.T) {
 	err = intr.AutoMigrate(&Interactive{})
 	require.NoError(t, err)
 	db, err := gorm.Open(mysql.New(mysql.Config{
-		Conn: &DoubleWritePool{
+		Conn: &doublewrite.DoubleWritePool{
 			src:     webook.ConnPool,
 			dst:     intr.ConnPool,
-			pattern: atomicx.NewValueOf(PatternSrcFirst),
+			pattern: atomicx.NewValueOf(doublewrite.PatternSrcFirst),
 		},
 	}))
 	require.NoError(t, err)

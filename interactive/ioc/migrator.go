@@ -8,7 +8,7 @@ import (
 
 	"webooktrial/interactive/repository/dao"
 	"webooktrial/pkg/ginx"
-	"webooktrial/pkg/gormx/connpool"
+	prometheus2 "webooktrial/pkg/gormx/callbacks/doublewrite"
 	"webooktrial/pkg/logger"
 	"webooktrial/pkg/migrator/events"
 	"webooktrial/pkg/migrator/events/fixer"
@@ -37,7 +37,7 @@ func InitMigratorWeb(
 	l logger.LoggerV1,
 	src SrcDB,
 	dst DstDB,
-	pool *connpool.DoubleWritePool,
+	pool *prometheus2.DoubleWritePool,
 	producer events.Producer,
 ) *ginx.Server {
 	// 在这里，有多少张表，你就初始化多少个 scheduler

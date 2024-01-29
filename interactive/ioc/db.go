@@ -12,7 +12,7 @@ import (
 	"gorm.io/plugin/prometheus"
 
 	"webooktrial/interactive/repository/dao"
-	"webooktrial/pkg/gormx/connpool"
+	prometheus2 "webooktrial/pkg/gormx/callbacks/doublewrite"
 	"webooktrial/pkg/logger"
 )
 
@@ -24,13 +24,13 @@ func InitDST(l logger.LoggerV1) DstDB {
 	return InitDB(l, "dst")
 }
 
-func InitDoubleWritePool(src SrcDB, dst DstDB) *connpool.DoubleWritePool {
+func InitDoubleWritePool(src SrcDB, dst DstDB) *prometheus2.DoubleWritePool {
 	pattern := viper.GetString("migrator.pattern")
-	return connpool.NewDoubleWritePool(src.ConnPool, dst.ConnPool, pattern)
+	return prometheus2.NewDoubleWritePool(src.ConnPool, dst.ConnPool, pattern)
 }
 
 // InitBizDB 这个是业务用的，支持双写的 DB
-func InitBizDB(pool *connpool.DoubleWritePool) *gorm.DB {
+func InitBizDB(pool *prometheus2.DoubleWritePool) *gorm.DB {
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		Conn: pool,
 	}))

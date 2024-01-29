@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"webooktrial/pkg/ginx"
-	"webooktrial/pkg/gormx/connpool"
+	"webooktrial/pkg/gormx/callbacks/doublewrite"
 	"webooktrial/pkg/logger"
 	"webooktrial/pkg/migrator"
 	"webooktrial/pkg/migrator/events"
@@ -24,7 +24,7 @@ type Scheduler[T migrator.Entity] struct {
 	lock       sync.Mutex
 	src        *gorm.DB
 	dst        *gorm.DB
-	pool       *connpool.DoubleWritePool
+	pool       *doublewrite.DoubleWritePool
 	l          logger.LoggerV1
 	pattern    string
 	cancelFull func()
@@ -40,13 +40,13 @@ func NewScheduler[T migrator.Entity](
 	src *gorm.DB,
 	dst *gorm.DB,
 	// 这个是业务用的 DoubleWritePool
-	pool *connpool.DoubleWritePool,
+	pool *doublewrite.DoubleWritePool,
 	producer events.Producer) *Scheduler[T] {
 	return &Scheduler[T]{
 		l:       l,
 		src:     src,
 		dst:     dst,
-		pattern: connpool.PatternSrcOnly,
+		pattern: doublewrite.PatternSrcOnly,
 		cancelFull: func() {
 			// 初始的时候，啥也不用做
 		},
@@ -79,8 +79,8 @@ func (s *Scheduler[T]) RegisterRoutes(server *gin.RouterGroup) {
 func (s *Scheduler[T]) SrcOnly(c *gin.Context) (ginx.Result, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.pattern = connpool.PatternSrcOnly
-	s.pool.UpdatePattern(connpool.PatternSrcOnly)
+	s.pattern = doublewrite.PatternSrcOnly
+	s.pool.UpdatePattern(doublewrite.PatternSrcOnly)
 	return ginx.Result{
 		Msg: "OK",
 	}, nil
@@ -89,8 +89,8 @@ func (s *Scheduler[T]) SrcOnly(c *gin.Context) (ginx.Result, error) {
 func (s *Scheduler[T]) SrcFirst(c *gin.Context) (ginx.Result, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.pattern = connpool.PatternSrcFirst
-	s.pool.UpdatePattern(connpool.PatternSrcFirst)
+	s.pattern = doublewrite.PatternSrcFirst
+	s.pool.UpdatePattern(doublewrite.PatternSrcFirst)
 	return ginx.Result{
 		Msg: "OK",
 	}, nil
@@ -99,8 +99,8 @@ func (s *Scheduler[T]) SrcFirst(c *gin.Context) (ginx.Result, error) {
 func (s *Scheduler[T]) DstFirst(c *gin.Context) (ginx.Result, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.pattern = connpool.PatternDstFirst
-	s.pool.UpdatePattern(connpool.PatternDstFirst)
+	s.pattern = doublewrite.PatternDstFirst
+	s.pool.UpdatePattern(doublewrite.PatternDstFirst)
 	return ginx.Result{
 		Msg: "OK",
 	}, nil
@@ -109,8 +109,8 @@ func (s *Scheduler[T]) DstFirst(c *gin.Context) (ginx.Result, error) {
 func (s *Scheduler[T]) DstOnly(c *gin.Context) (ginx.Result, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.pattern = connpool.PatternDstOnly
-	s.pool.UpdatePattern(connpool.PatternDstOnly)
+	s.pattern = doublewrite.PatternDstOnly
+	s.pool.UpdatePattern(doublewrite.PatternDstOnly)
 	return ginx.Result{
 		Msg: "OK",
 	}, nil
@@ -192,9 +192,9 @@ func (s *Scheduler[T]) StartFullValidation(c *gin.Context) (ginx.Result, error) 
 
 func (s *Scheduler[T]) newValidator() (*validator.Validator[T], error) {
 	switch s.pattern {
-	case connpool.PatternSrcOnly, connpool.PatternSrcFirst:
+	case doublewrite.PatternSrcOnly, doublewrite.PatternSrcFirst:
 		return validator.NewValidator[T](s.src, s.dst, s.l, s.producer, "SRC"), nil
-	case connpool.PatternDstFirst, connpool.PatternDstOnly:
+	case doublewrite.PatternDstFirst, doublewrite.PatternDstOnly:
 		return validator.NewValidator[T](s.dst, s.src, s.l, s.producer, "DST"), nil
 	default:
 		return nil, fmt.Errorf("未知的 pattern %s", s.pattern)
