@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package follow.v1;
+option go_package="follow/v1;followv1";
+
+message FollowRelation {
+    int64 id = 1;
+    int64 follower = 2;
+    int64 followee = 3;
+}
+
+service FollowService {
+    // 增删
+    rpc Follow (FollowRequest) returns (FollowResponse);
+    rpc CancelFollow (CancelFollowRequest) returns (CancelFollowResponse);
+    // 获得某个人的关注列表
+    rpc GetFollowee (GetFolloweeRequest) returns (GetFolloweeResponse);
+    rpc FollowInfo (FollowInfoRequest) returns (FollowInfoResponse);
+}
+
+message FollowInfoRequest {
+    // 关注者
+    int64 follower = 1;
+    // 被关注者
+    int64 followee = 2;
+}
+
+message FollowInfoResponse {
+    FollowRelation follow_relation = 1;
+}
+
+message GetFolloweeRequest {
+    int64 follower = 1;
+    // min_id, max_id
+    int64 offset = 2;
+    int64 limit = 3;
+}
+
+message GetFolloweeResponse {
+    repeated FollowRelation follow_relations = 1;
+}
+
+message CancelFollowRequest {
+    int64 followee = 1;
+    int64 follower = 2;
+}
+
+message CancelFollowResponse {}
+
+message FollowRequest {
+    // 被关注者
+    int64 followee = 1;
+    // 关注者
+    int64 follower = 2;
+    // 如果说有额外的功能
+    // 分组功能
+    //  int64 gid = 3;
+    // 标签功能
+    //  repeated int64 label_ids = 4;
+    // 比如说是否主动提醒 follower，followee 有了新动态
+    //  bool notification = 5;
+}
+
+message FollowResponse {}
+
+

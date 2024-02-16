@@ -26,6 +26,7 @@ func NewCommentServiceServer(svc service.CommentService) *CommentServiceServer {
 }
 
 func (c *CommentServiceServer) GetCommentList(ctx context.Context, req *commentv1.CommentListRequest) (*commentv1.CommentListResponse, error) {
+	// 可以在这里判断是否触发了限流或者降级，如果触发，直接返回
 	minID := req.MinId
 	// 第一次查询，这边我们认为用户没有传
 	if minID <= 0 {
@@ -51,13 +52,19 @@ func (c *CommentServiceServer) DeleteComment(ctx context.Context, req *commentv1
 }
 
 func (c *CommentServiceServer) CreateComment(ctx context.Context, req *commentv1.CreateCommentRequest) (*commentv1.CreateCommentResponse, error) {
+	// 可以在这里判断是否触发了限流或者降级，如果触发，则将消息丢进kafka后返回
 	err := c.svc.CreateComment(ctx, convertToDomain(req.GetComment()))
 	return &commentv1.CreateCommentResponse{}, err
 }
 
-func (c *CommentServiceServer) GetMoreReplies(ctx context.Context, in *commentv1.GetMoreRepliesRequest) (*commentv1.GetMoreRepliesResponse, error) {
-	//TODO implement me
-	panic("implement me")
+func (c *CommentServiceServer) GetMoreReplies(ctx context.Context, req *commentv1.GetMoreRepliesRequest) (*commentv1.GetMoreRepliesResponse, error) {
+	cs, err := c.svc.GetMoreReplies(ctx, req.Rid, req.MaxId, req.Limit)
+	if err != nil {
+		return nil, err
+	}
+	return &commentv1.GetMoreRepliesResponse{
+		Replies: c.toDTO(cs),
+	}, nil
 }
 
 func (c *CommentServiceServer) toDTO(domainComments []domain.Comment) []*commentv1.Comment {

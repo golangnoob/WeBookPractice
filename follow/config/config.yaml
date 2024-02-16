@@ -1,0 +1,7 @@
+db:
+  dsn: "root:root@tcp(localhost:13316)/webook"
+
+grpc:
+  #  启动监听 8092 端口
+  etcdAddrs:
+    - "8092"
